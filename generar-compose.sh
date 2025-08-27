@@ -17,10 +17,11 @@ fi
 
 # Generate Docker Compose file
 cat > "$OUTPUT_FILE" << 'EOF'
+name: tp0
 services:
   server:
     container_name: server
-    build: ./server
+    image: server:latest
     entrypoint: python3 /main.py
     environment:
       - PYTHONUNBUFFERED=1
@@ -35,7 +36,7 @@ for i in $(seq 1 $NUM_CLIENTS); do
 
   client$i:
     container_name: client$i
-    build: ./client
+    image: client:latest
     entrypoint: /client
     environment:
       - CLI_ID=$i
