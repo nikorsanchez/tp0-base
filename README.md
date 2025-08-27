@@ -1,5 +1,18 @@
 # TP0: Docker + Comunicaciones + Concurrencia
 
+## Documentación de Ejercicios
+
+- [Ejercicio 1](docs/ej1.md)
+- [Ejercicio 2](docs/ej2.md)
+- [Ejercicio 3](docs/ej3.md)
+- [Ejercicio 4](docs/ej4.md)
+- [Ejercicio 5](docs/ej5.md)
+- [Ejercicio 6](docs/ej6.md)
+- [Ejercicio 7](docs/ej7.md)
+- [Ejercicio 8](docs/ej8.md)
+
+## Enunciado
+
 En el presente repositorio se provee un esqueleto básico de cliente/servidor, en donde todas las dependencias del mismo se encuentran encapsuladas en containers. Los alumnos deberán resolver una guía de ejercicios incrementales, teniendo en cuenta las condiciones de entrega descritas al final de este enunciado.
 
  El cliente (Golang) y el servidor (Python) fueron desarrollados en diferentes lenguajes simplemente para mostrar cómo dos lenguajes de programación pueden convivir en el mismo proyecto con la ayuda de containers, en este caso utilizando [Docker Compose](https://docs.docker.com/compose/).
