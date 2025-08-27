@@ -9,10 +9,6 @@ fi
 
 OUTPUT_FILE=$1
 NUM_CLIENTS=$2
-
-echo "Output Filename: $OUTPUT_FILE"
-echo "Number of Clients: $NUM_CLIENTS"
-
 # Check number of clients (1 to 100)
 if ! [[ "$NUM_CLIENTS" =~ ^[0-9]+$ ]] || [ "$NUM_CLIENTS" -le 0 ] || [ "$NUM_CLIENTS" -gt 100 ]; then
     echo "Error: Number of clients must be a positive integer between 1 and 100"
@@ -20,7 +16,7 @@ if ! [[ "$NUM_CLIENTS" =~ ^[0-9]+$ ]] || [ "$NUM_CLIENTS" -le 0 ] || [ "$NUM_CLI
 fi
 
 # Generate Docker Compose file
-cat > "$OUTPUT_FILE" << EOF
+cat > "$OUTPUT_FILE" << 'EOF'
 name: tp0
 services:
   server:
@@ -35,8 +31,8 @@ services:
 EOF
 
 # Add client services
-for ((i=1; i<=NUM_CLIENTS; i++)); do
-  cat >> "$OUTPUT_FILE" << EOF
+for i in $(seq 1 $NUM_CLIENTS); do
+    cat >> "$OUTPUT_FILE" << EOF
 
   client$i:
     container_name: client$i
@@ -52,7 +48,8 @@ for ((i=1; i<=NUM_CLIENTS; i++)); do
 EOF
 done
 
-cat >> "$OUTPUT_FILE" << EOF
+# Add networks
+cat >> "$OUTPUT_FILE" << 'EOF'
 
 networks:
   testing_net:
