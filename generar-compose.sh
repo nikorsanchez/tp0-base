@@ -33,10 +33,3 @@ fi
 
 # Python docker compose generator script
 python3 generar-compose.py "$OUTPUT_FILE" "$NUM_CLIENTS"
-
-if [ $? -eq 0 ]; then
-    echo "Docker Compose file generated successfully: $OUTPUT_FILE"
-else
-    echo "Error generating Docker Compose file"
-    exit 1
-fi
