@@ -9,6 +9,12 @@ fi
 
 OUTPUT_FILE=$1
 NUM_CLIENTS=$2
+
+
+echo "Output Filename: $OUTPUT_FILE"
+echo "Number of Clients: $NUM_CLIENTS"
+
+
 # Check number of clients (1 to 100)
 if ! [[ "$NUM_CLIENTS" =~ ^[0-9]+$ ]] || [ "$NUM_CLIENTS" -le 0 ] || [ "$NUM_CLIENTS" -gt 100 ]; then
     echo "Error: Number of clients must be a positive integer between 1 and 100"
@@ -25,6 +31,7 @@ services:
     entrypoint: python3 /main.py
     environment:
       - PYTHONUNBUFFERED=1
+      - LOGGING_LEVEL=DEBUG
     networks:
       - testing_net
 EOF
@@ -39,6 +46,7 @@ for i in $(seq 1 $NUM_CLIENTS); do
     entrypoint: /client
     environment:
       - CLI_ID=$i
+      - CLI_LOG_LEVEL=DEBUG
     networks:
       - testing_net
     depends_on:
