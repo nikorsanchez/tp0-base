@@ -19,17 +19,5 @@ if ! [[ "$NUM_CLIENTS" =~ ^[0-9]+$ ]] || [ "$NUM_CLIENTS" -le 0 ] || [ "$NUM_CLI
     exit 1
 fi
 
-# Check .yaml extension
-if [[ "$OUTPUT_FILE" == *.* ]]; then
-    EXTENSION="${OUTPUT_FILE##*.}"
-    if [[ "$EXTENSION" != "yaml" ]]; then
-        echo "Error: Output file extension must be .yaml"
-        exit 1
-    fi
-else
-    OUTPUT_FILE="${OUTPUT_FILE}.yaml"
-    echo "No extension detected. Output filename changed to: $OUTPUT_FILE"
-fi
-
 # Python docker compose generator script
 python3 generar-compose.py "$OUTPUT_FILE" "$NUM_CLIENTS"
