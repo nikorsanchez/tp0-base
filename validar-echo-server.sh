@@ -11,8 +11,6 @@ if [ "$RESPONSE" == "$TEST_MSG" ]; then
    EXIT_CODE=0
 else
    echo "action: test_echo_server | result: fail"
-   echo "Expected: $TEST_MSG"
-   echo "Received: $RESPONSE"
    EXIT_CODE=1
 fi
 
