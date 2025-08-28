@@ -31,6 +31,7 @@ services:
     entrypoint: python3 /main.py
     environment:
       - PYTHONUNBUFFERED=1
+      - SERVER_PORT=12345
     volumes:
       - ./server/config.ini:/config.ini:ro
     networks:
@@ -61,6 +62,7 @@ cat >> "$OUTPUT_FILE" << 'EOF'
 
 networks:
   testing_net:
+    driver: bridge
     ipam:
       driver: default
       config:
