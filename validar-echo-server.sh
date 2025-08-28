@@ -3,14 +3,17 @@
 SERVER_NAME="server"
 SERVER_PORT=12345
 NETWORK_NAME="tp0_testing_net"
+SUCCESS_MSG="action: test_echo_server | result: success"
+FAILURE_MSG="action: test_echo_server | result: fail"
 TEST_MSG="Testing server connection"
-RESPONSE=$(docker run --rm --network "$NETWORK_NAME" busybox sh -c "echo '$TEST_MSG' | nc $SERVER_NAME $SERVER_PORT")
+
+RESPONSE=$(docker run --network "$NETWORK_NAME" --rm busybox:latest sh -c "echo '$TEST_MSG' | nc $SERVER_NAME $SERVER_PORT")
 
 if [ "$RESPONSE" == "$TEST_MSG" ]; then
-   echo "action: test_echo_server | result: success"
+   echo "$SUCCESS_MSG"
    EXIT_CODE=0
 else
-   echo "action: test_echo_server | result: fail"
+   echo "$FAILURE_MSG"
    EXIT_CODE=1
 fi
 
