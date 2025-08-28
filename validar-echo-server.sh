@@ -12,9 +12,9 @@ TEST_MSG="Testing server connection"
 for i in $(seq 1 $MAX_RETRIES); do
    RESPONSE=$(docker run --network "$NETWORK_NAME" --rm busybox:latest sh -c "echo '$TEST_MSG' | nc -w 2 $SERVER_NAME $SERVER_PORT")
 
-    if [ "$RESPONSE" == "$TEST_MSG" ]; then
+    if [ "$RESPONSE" = "$TEST_MSG" ]; then
         echo "$SUCCESS_MSG"
-        EXIT_CODE=0
+        exit 0
     fi
 
     sleep $RETRY_INTERVAL
