@@ -41,7 +41,7 @@ func NewClient(config ClientConfig) *Client {
 
 // GracefulShutdown closes the client connection gracefully
 func (c *Client) GracefulShutdown() {
-	log.Infof("action: client_shutdown | result: started | client_id: %v", c.config.ID)
+	log.Infof("action: client_shutdown | result: in_progress | client_id: %v", c.config.ID)
 	if c.conn != nil {
 		c.conn.Close()
 	}
