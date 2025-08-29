@@ -28,10 +28,10 @@ class Server:
         try:
             logging.info("action: closing_server_socket | result: in_progress")
             if self._server_socket:
-                logging.info(f"action: closing_server_socket | fd: {self._server_socket.fileno()} | result: in_progress")
+                logging.info(f"action: closing_server_socket | result: in_progress | fd: {self._server_socket.fileno()}")
                 self._server_socket.shutdown(socket.SHUT_RDWR)
                 self._server_socket.close()
-                logging.info(f"action: closing_server_socket | fd: {self._server_socket.fileno()} | result: success")
+                logging.info(f"action: closing_server_socket | result: success | fd: {self._server_socket.fileno()}")
         except OSError as e:
             logging.error(f"action: closing_server_socket | result: fail | error: {e}")
         
