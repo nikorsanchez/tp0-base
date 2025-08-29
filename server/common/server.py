@@ -92,7 +92,7 @@ class Server:
             return None
 
     def _graceful_shutdown(self):
-        logging.info("action: server_shutdown | result: started")
+        logging.info("action: server_shutdown | result: in_progress")
         self._shutdown_requested = True
         self._close_server_socket()
         logging.info("action: server_shutdown | result: success")
