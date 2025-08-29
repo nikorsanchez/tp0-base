@@ -1,5 +1,6 @@
 import socket
 import logging
+import signal
 
 
 class Server:
@@ -8,7 +9,56 @@ class Server:
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
+        
+        self._shutdown_requested = False
+        self._active_connections = []
+        self._setup_signal_handler()
 
+    def _setup_signal_handler(self):
+        # Set up signal handler for graceful shutdown
+        signal.signal(signal.SIGTERM, self._handle_signal)
+
+    def _handle_signal(self, signum, frame):
+        # Handle termination signals
+        logging.info(f"action: received_signal | signal: {signum} | result: initiating_graceful_shutdown")
+        self._shutdown_requested = True
+        
+    def _add_connection(self, client_sock):
+        # Add client to tracking list
+        self._active_connections.append(client_sock)
+        logging.info(f"action: add_connection | fd: {client_sock.fileno()} | result: success | total_connections: {len(self._active_connections)}")
+
+    def _remove_connection(self, client_sock):
+        # Remove client from tracking list
+        if client_sock in self._active_connections:
+            self._active_connections.remove(client_sock)
+            logging.info(f"action: remove_connection | fd: {client_sock.fileno()} | result: success | remaining_connections: {len(self._active_connections)}")
+
+    def _close_all_connections(self):
+        # Close all active client connections
+        logging.info(f"action: closing_connections | result: in_progress | total_to_close: {len(self._active_connections)}")
+        
+        for client_sock in self._active_connections[:]:
+            try:
+                logging.info(f"action: closing_client_socket | fd: {client_sock.fileno()} | result: in_progress")
+                client_sock.close()
+                logging.info(f"action: closing_client_socket | fd: {client_sock.fileno()} | result: success")
+            except OSError as e:
+                logging.error(f"action: closing_client_socket | fd: {client_sock.fileno()} | result: fail | error: {e}")
+            finally:
+                self._remove_connection(client_sock)
+
+    def _close_server_socket(self):
+        # Close the server socket
+        try:
+            logging.info("action: closing_server_socket | result: in_progress")
+            if self._server_socket:
+                logging.info(f"action: closing_server_socket | fd: {self._server_socket.fileno()} | result: in_progress")
+                self._server_socket.close()
+                logging.info(f"action: closing_server_socket | fd: {self._server_socket.fileno()} | result: success")
+        except OSError as e:
+            logging.error(f"action: closing_server_socket | result: fail | error: {e}")
+        
     def run(self):
         """
         Dummy Server loop
@@ -18,11 +68,15 @@ class Server:
         finishes, servers starts to accept new connections again
         """
 
-        # TODO: Modify this program to handle signal to graceful shutdown
-        # the server
-        while True:
-            client_sock = self.__accept_new_connection()
-            self.__handle_client_connection(client_sock)
+        logging.info('server started, waiting for connections...')
+        try:
+            while not self._shutdown_requested:
+                client_sock = self.__accept_new_connection()
+                self.__handle_client_connection(client_sock)
+        except Exception as e:
+            logging.error(f"action: server_loop | result: fail | error: {e}")
+        finally:
+            self._graceful_shutdown()
 
     def __handle_client_connection(self, client_sock):
         """
@@ -53,6 +107,28 @@ class Server:
 
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
-        c, addr = self._server_socket.accept()
-        logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-        return c
+        try:
+            client_sock, addr = self._server_socket.accept()
+            logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+            self._add_connection(client_sock)
+        except OSError as e:
+            if not self._shutdown_requested:
+                logging.error(f'action: accept_connections | result: fail | error: {e}')
+                
+    def _close_client_connection(self, client_sock):
+        try:
+            fd = client_sock.fileno()
+            logging.info(f"action: closing_client_socket | fd: {fd} | result: in_progress")
+            client_sock.close()
+            logging.info(f"action: closing_client_socket | fd: {fd} | result: success")
+        except OSError as e:
+            logging.error(f"action: closing_client_socket | fd: {fd} | result: fail | error: {e}")
+        finally:
+            self._remove_connection(client_sock)
+
+    def _graceful_shutdown(self):
+        logging.info("action: server_shutdown | result: started")
+        self._shutdown_requested = True
+        self._close_all_connections()
+        self._close_server_socket()
+        logging.info("action: server_shutdown | result: success")
