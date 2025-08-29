@@ -19,7 +19,7 @@ class Server:
 
     def _handle_signal(self, signum, frame):
         # Handle termination signals
-        logging.info(f"action: received_signal | signal: {signum} | result: initiating_graceful_shutdown")
+        logging.info(f"action: received_signal | signal: {signum} | result: in_progress")
         self._shutdown_requested = True
         self._graceful_shutdown()
 
