@@ -1,6 +1,10 @@
 import socket
 import logging
 import signal
+from bets.protocol.protocol import LotteryProtocol
+from server.bets.handlers.bet_handler import BetHandler
+from server.common.utils import store_bets
+from server.bets.models import Bet
 
 
 class Server:
@@ -14,17 +18,15 @@ class Server:
         self._setup_signal_handler()
 
     def _setup_signal_handler(self):
-        # Set up signal handler for graceful shutdown
         signal.signal(signal.SIGTERM, self._handle_signal)
 
     def _handle_signal(self, signum, frame):
-        # Handle termination signals
+        # Handle termination signal
         logging.info(f"action: received_signal | result: in_progress")
         self._shutdown_requested = True
         self._graceful_shutdown()
 
     def _close_server_socket(self):
-        # Close the server socket
         try:
             logging.info("action: closing_server_socket | result: in_progress")
             if self._server_socket:
@@ -60,17 +62,44 @@ class Server:
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
+        protocol = LotteryProtocol(client_sock)
         try:
-            # TODO: Modify the receive to avoid short-reads
-            msg = client_sock.recv(1024).rstrip().decode('utf-8')
+            message = protocol.receive_message()
+            
+            if message is None:
+                logging.error("action: receive_message | result: fail | error: invalid_message")
+                return
+            
             addr = client_sock.getpeername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            # TODO: Modify the send to avoid short-writes
-            client_sock.send("{}\n".format(msg).encode('utf-8'))
-        except OSError as e:
-            logging.error("action: receive_message | result: fail | error: {e}")
+            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | message: {message}')
+            
+            response = BetHandler.process_bet(message)
+
+            if response.get('status') == 'success':
+                try:
+                    bet = Bet(
+                        message['agency'],
+                        message['first_name'],
+                        message['last_name'],
+                        message['document'],
+                        message['birthdate'],
+                        message['number']
+                    )
+                    store_bets([bet])
+                    logging.info(f"action: store_bet | result: success | document: {bet.document}")
+                    protocol.send_confirmation()
+                except Exception as e:
+                    logging.error(f"action: store_bet | result: fail | error: {e}")
+            else:
+                protocol.send_message(response)
+            
+        except Exception as e:
+            logging.error(f"action: handle_client | result: fail | error: {e}")
+            error_response = {'status': 'error', 'message': 'Server error'}
+            protocol.send_message(error_response)
         finally:
-            client_sock.close()
+            protocol.close()
+
 
     def __accept_new_connection(self):
         """
@@ -80,7 +109,6 @@ class Server:
         Then connection created is printed and returned
         """
 
-        # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
         try:
             client_sock, addr = self._server_socket.accept()
