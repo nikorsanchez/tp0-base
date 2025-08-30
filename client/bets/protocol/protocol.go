@@ -1,15 +1,13 @@
 package protocol
 
 import (
-    "encoding/binary"
     "encoding/json"
     "fmt"
     "io"
-    "log"
     "net"
     "os"
 
-    "../models"
+    "github.com/7574-sistemas-distribuidos/docker-compose-init/client/bets/models"
 )
 
 // bytes
@@ -21,7 +19,6 @@ const (
     FullHeaderSize     = HeaderSize + LengthSize
 )
 
-// SendBet serializa la apuesta y la envía al servidor con el header correspondiente.
 func SendBet(conn net.Conn, bet *models.Bet) error {
     betBytes, err := json.Marshal(bet)
     if err != nil {
@@ -33,7 +30,6 @@ func SendBet(conn net.Conn, bet *models.Bet) error {
 
     header := make([]byte, FullHeaderSize)
     header[0] = HeaderTypeBet
-    // 3 bytes big endian for length
     header[1] = byte((len(betBytes) >> 16) & 0xFF)
     header[2] = byte((len(betBytes) >> 8) & 0xFF)
     header[3] = byte(len(betBytes) & 0xFF)

@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/op/go-logging"
-	"models"
-    "tp0/client/bets/protocol"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/bets/protocol"
 )
 
 var log = logging.MustGetLogger("log")
