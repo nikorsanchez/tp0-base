@@ -10,15 +10,6 @@ import (
     "github.com/7574-sistemas-distribuidos/docker-compose-init/client/bets/models"
 )
 
-// bytes
-const (
-    HeaderTypeBet      = 1
-    HeaderTypeConfirm  = 2
-    HeaderSize         = 1
-    LengthSize         = 3
-    FullHeaderSize     = HeaderSize + LengthSize
-)
-
 func SendBet(conn net.Conn, bet *models.Bet) error {
     betBytes, err := json.Marshal(bet)
     if err != nil {
