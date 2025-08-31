@@ -84,10 +84,10 @@ class Server:
                         message['number']
                     )
                     store_bets([bet])
-                    logging.info(f"action: store_bet | result: success | document: {bet.document}")
+                    logging.info(f"action: apuesta_almacenada | result: success | document: {bet.document}")
                     protocol.send_confirmation()
                 except Exception as e:
-                    logging.error(f"action: store_bet | result: fail | error: {e}")
+                    logging.error(f"action: apuesta_almacenada | result: fail | error: {e}")
             else:
                 protocol.send_message(response)
             
