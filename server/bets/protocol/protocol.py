@@ -1,13 +1,7 @@
 import struct
 import json
 import logging
-
-# bytes
-HEADER_TYPE_BET = 1
-HEADER_TYPE_CONFIRM = 2
-HEADER_SIZE = 1
-LENGTH_SIZE = 3
-FULL_HEADER_SIZE = HEADER_SIZE + LENGTH_SIZE
+from bets.protocol.protocol_consts import HEADER_TYPE_BET, HEADER_TYPE_CONFIRM, FULL_HEADER_SIZE
 
 class LotteryProtocol:
     def __init__(self, sock):

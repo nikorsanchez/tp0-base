@@ -31,6 +31,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - SERVER_PORT=12345
+      - BATCH_PROCESSING=true
     volumes:
       - ./server/config.ini:/config.ini:ro
     networks:
@@ -47,14 +48,11 @@ if [ "$NUM_CLIENTS" -gt 0 ]; then
     entrypoint: /client
     environment:
       - CLI_ID=$i
-      - AGENCIA=$i
-      - NOMBRE=Edsger$i
-      - APELLIDO=Dijkstra$i
-      - DOCUMENTO=3090446$i
-      - NACIMIENTO=1930-03-17
-      - NUMERO=757$i
+      - BATCH_SIZE=100
+      - BATCH_PROCESSING=true
     volumes:
       - ./client/config.yaml:/config.yaml:ro
+      - ./.data/agency-$i.csv:/data/agency-$i.csv:ro
     networks:
       - testing_net
     depends_on:
