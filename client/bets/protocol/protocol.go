@@ -34,10 +34,10 @@ func SendBet(conn net.Conn, bet *models.Bet) error {
     header[2] = byte((len(betBytes) >> 8) & 0xFF)
     header[3] = byte(len(betBytes) & 0xFF)
 
-    if _, err := conn.Write(header); err != nil {
+    if err := writeFull(conn, header); err != nil {
         return fmt.Errorf("send header: %w", err)
     }
-    if _, err := conn.Write(betBytes); err != nil {
+    if err := writeFull(conn, betBytes); err != nil {
         return fmt.Errorf("send body: %w", err)
     }
     return nil
@@ -59,6 +59,18 @@ func WaitForConfirmation(conn net.Conn) error {
 func readData(r io.Reader, buf []byte) error {
     _, err := io.ReadFull(r, buf)
     return err
+}
+
+func writeFull(conn net.Conn, data []byte) error {
+    total := 0
+    for total < len(data) {
+        n, err := conn.Write(data[total:])
+        if err != nil {
+            return err
+        }
+        total += n
+    }
+    return nil
 }
 
 func BetFromEnv() *models.Bet {

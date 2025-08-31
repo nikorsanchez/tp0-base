@@ -1,7 +1,6 @@
 import csv
 import datetime
-import time
-from server.bets.models.bet import Bet
+from bets.models.bet import Bet
 
 
 """ Bets storage location. """

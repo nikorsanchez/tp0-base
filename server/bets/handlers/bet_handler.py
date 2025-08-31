@@ -1,6 +1,6 @@
 import logging
-from server.bets.models.bet import Bet
-from server.common.utils import store_bet
+from bets.models.bet import Bet
+from common.utils import store_bets
 
 class BetHandler:
     @staticmethod
@@ -25,7 +25,7 @@ class BetHandler:
                 number=bet_data['number']
             )
             
-            store_bet(bet)
+            store_bets([bet])
             
             return {'status': 'success', 'message': 'Bet stored successfully'}
             

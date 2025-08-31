@@ -1,3 +1,6 @@
+import datetime
+import time
+
 """ A lottery bet registry. """
 class Bet:
     def __init__(self, agency: str, first_name: str, last_name: str, document: str, birthdate: str, number: str):

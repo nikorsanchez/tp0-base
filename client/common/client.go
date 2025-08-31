@@ -7,8 +7,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/op/go-logging"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/bets/protocol"
+	"github.com/op/go-logging"
 )
 
 var log = logging.MustGetLogger("log")

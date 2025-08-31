@@ -2,9 +2,9 @@ import socket
 import logging
 import signal
 from bets.protocol.protocol import LotteryProtocol
-from server.bets.handlers.bet_handler import BetHandler
-from server.common.utils import store_bets
-from server.bets.models import Bet
+from bets.handlers.bet_handler import BetHandler
+from common.utils import store_bets
+from bets.models import Bet
 
 
 class Server:
@@ -39,10 +39,8 @@ class Server:
         
     def run(self):
         """
-        Dummy Server loop
-
         Server that accept a new connections and establishes a
-        communication with a client. After client with communucation
+        communication with a Lottery client. After client with communucation
         finishes, servers starts to accept new connections again
         """
 

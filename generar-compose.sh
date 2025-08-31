@@ -47,11 +47,12 @@ if [ "$NUM_CLIENTS" -gt 0 ]; then
     entrypoint: /client
     environment:
       - CLI_ID=$i
-      - CLI_NOMBRE=Edsger$i
-      - CLI_APELLIDO=Dijkstra$i
-      - CLI_DOCUMENTO=documento$i
-      - CLI_NACIMIENTO=1930-03-17
-      - CLI_NUMERO=numero$i
+      - AGENCIA=$i
+      - NOMBRE=Edsger$i
+      - APELLIDO=Dijkstra$i
+      - DOCUMENTO=documento$i
+      - NACIMIENTO=1930-03-17
+      - NUMERO=757$i
     volumes:
       - ./client/config.yaml:/config.yaml:ro
     networks:
