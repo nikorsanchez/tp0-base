@@ -56,11 +56,13 @@ func WaitForConfirmation(conn net.Conn) error {
     return nil
 }
 
+// Reads all bytes from the connection preventing short reads
 func readData(r io.Reader, buf []byte) error {
     _, err := io.ReadFull(r, buf)
     return err
 }
 
+// Writes all bytes to the connection preventing short writes
 func writeFull(conn net.Conn, data []byte) error {
     total := 0
     for total < len(data) {

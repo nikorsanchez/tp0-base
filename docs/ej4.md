@@ -24,8 +24,8 @@ Luego de esperar a que inicien los servicios, en otra consola ejecutar:
 
 `make docker-compose-logs`
 
-Volver a la primer consola unos segundos después, ejecutar el siguiente comando y volver a la otra consola para ver los logs:
+Volver a la primer consola unos segundos después, ejecutar el siguiente comando y volver a la otra consola para ver los logs al comenzar a cerrar los sistemas:
 
 `make docker-compose-down`
 
-Podrá observarse como los clientes (si los hay) y el servidor terminan de forma "gracefully" sus procesos, durante la etapa de "stopping" provocada por el compose down.
+Podrá observarse como los clientes (si los hay) y el servidor terminan de forma "gracefully" sus procesos, durante la etapa de "stopping" provocada por el compose down, una vez que todos reciben la señal.

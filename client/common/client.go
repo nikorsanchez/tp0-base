@@ -98,8 +98,6 @@ func (c *Client) StartClientLoop() {
 
 	log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %s", bet.Document, bet.Number)
 
-	time.Sleep(c.config.LoopPeriod)
-
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 	c.GracefulShutdown()
 }

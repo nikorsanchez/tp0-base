@@ -9,8 +9,6 @@ STORAGE_FILEPATH = "./bets.csv"
 LOTTERY_WINNER_NUMBER = 7574
 
 
-
-
 """ Checks whether a bet won the prize or not. """
 def has_won(bet: Bet) -> bool:
     return bet.number == LOTTERY_WINNER_NUMBER
