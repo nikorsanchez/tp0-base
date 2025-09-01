@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/bets/protocol"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/bets/utils"
 	"github.com/op/go-logging"
 )
 
@@ -78,26 +79,36 @@ func (c *Client) StartClient() {
 		return
 	}
 
-	bet := protocol.BetFromEnv()
-
-	err := protocol.SendBet(c.conn, bet)
-
+	bets, err := utils.BetsFromFile()
 	if err != nil {
-		log.Errorf("action: send_bet | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		c.conn.Close()
+		log.Errorf("action: read_bets | result: fail | client_id: %v | error: %v", c.config.ID, err)
 		c.GracefulShutdown()
 		return
 	}
 
-	err = protocol.WaitForConfirmation(c.conn)
-	c.conn.Close()
-	if err != nil {
-		log.Errorf("action: receive_confirmation | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		c.GracefulShutdown()
-		return
-	}
+	log.Infof("action: read_bets | result: success | client_id: %v | bets_count: %d", c.config.ID, len(bets))
 
-	log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %s", bet.Document, bet.Number)
+	log.Infof("action: sending_batch | result: in_progress | client_id: %v | bets_count: %d", c.config.ID, len(bets))
+
+	err = protocol.SendBetsBatch(c.conn, bets)
+    if err != nil {
+        log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", c.config.ID, err)
+        c.conn.Close()
+        c.GracefulShutdown()
+        return
+    }
+
+	err = protocol.WaitForBatchConfirmation(c.conn)
+    c.conn.Close()
+    
+    if err != nil {
+        log.Errorf("action: batch_de_apuestas_enviadas | result: fail | client_id: %v | error: %v", 
+            c.config.ID, err)
+        c.GracefulShutdown()
+        return
+    }
+
+	log.Infof("action: batch_de_apuestas_enviadas | result: success")
 
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 	c.GracefulShutdown()

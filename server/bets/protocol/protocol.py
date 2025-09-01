@@ -1,6 +1,6 @@
 import struct
 import logging
-from bets.protocol.protocol_consts import HEADER_TYPE_BET, HEADER_TYPE_CONFIRM, HEADER_SIZE, CONFIRMATION_LENGTH, HEADER_TYPE_FAILURE
+from bets.protocol.protocol_consts import HEADER_TYPE_BET_BATCH, HEADER_TYPE_CONFIRM, HEADER_SIZE, CONFIRMATION_LENGTH, HEADER_TYPE_FAILURE
 
 class LotteryProtocol:
     def __init__(self, sock):
@@ -40,7 +40,7 @@ class LotteryProtocol:
             
             msg_type, message_length = struct.unpack('!BH', header)
             
-            if msg_type != HEADER_TYPE_BET:
+            if msg_type != HEADER_TYPE_BET_BATCH:
                 logging.error(f"action: receive_message | result: fail | error: unexpected_type | type: {msg_type}")
                 return None
             
@@ -49,26 +49,54 @@ class LotteryProtocol:
                 return None
             
             message_str = message_bytes.decode('utf-8').strip()
-            parts = message_str.split('|')
+            
+            return self._parse_batch_message(message_str)
+            
+        except (OSError, struct.error, UnicodeDecodeError, ValueError) as e:
+            logging.error(f"action: receive_message | result: fail | error: {e}")
+            return None
+        
+    def _parse_batch_message(self, message_str):
+        """
+        Parse a batch of bets message
+        """
+        bets = []
+        error_count = 0
+        
+        bet_strings = message_str.split(';')
+        
+        logging.info(f"action: parse_batch | result: in_progress | total_bets: {len(bet_strings)}")
+        
+        for bet_str in bet_strings:
+            if not bet_str.strip():
+                continue
+                
+            parts = bet_str.split('|')
             
             if len(parts) != 6:
-                logging.error(f"action: receive_message | result: fail | error: invalid_format | expected 6 fields, got {len(parts)}")
-                return None
+                logging.warning(f"action: parse_bet | result: skip | error: invalid_format | fields: {len(parts)} | bet: {bet_str}")
+                error_count += 1
+                continue
             
-            message = {
+            bets.append({
                 'agency': parts[0],
                 'first_name': parts[1],
                 'last_name': parts[2],
                 'document': parts[3],
                 'birthdate': parts[4],
                 'number': parts[5]
-            }
-            
-            return message
-            
-        except (OSError, struct.error, UnicodeDecodeError, ValueError) as e:
-            logging.error(f"action: receive_message | result: fail | error: {e}")
+            })
+        
+        if not bets:
+            logging.error("action: parse_batch | result: fail | error: no_valid_bets")
             return None
+        
+        return {
+            'type': 'batch',
+            'bets': bets,
+            'error_count': error_count,
+            'total_received': len(bet_strings)
+        }
 
     def _recv_all(self, n):
         """

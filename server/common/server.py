@@ -59,29 +59,31 @@ class Server:
         """
         protocol = LotteryProtocol(client_sock)
         try:
-            message = protocol.receive_message()
+            message_data = protocol.receive_message()
             
-            if message is None:
+            if message_data is None:
                 logging.error("action: receive_message | result: fail | error: invalid_message")
                 return
             
             addr = client_sock.getpeername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | agency: {message.get("agency", "unknown")}')
+            logging.info(f'action: receive_message | result: success | ip: {addr[0]}')
             
-            response = BetHandler.process_bet(message)
+            response = BetHandler.process_batch_bet(message_data)
 
             if response.get('status') == 'success':
                 try:
-                    bet = Bet(
-                        message['agency'],
-                        message['first_name'],
-                        message['last_name'],
-                        message['document'],
-                        message['birthdate'],
-                        message['number']
-                    )
-                    store_bets([bet])
-                    logging.info(f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}")
+                    bet_objects = []
+                    for bet_dict in message_data['bets']:
+                        bet_objects.append(Bet(
+                            bet_dict['agency'],
+                            bet_dict['first_name'],
+                            bet_dict['last_name'],
+                            bet_dict['document'],
+                            bet_dict['birthdate'],
+                            bet_dict['number']
+                        ))
+                    store_bets(bet_objects)
+                    logging.info(f"action: apuesta_almacenada | result: success | bets: {len(bet_objects)}")
                     protocol.send_confirmation()
                 except Exception as e:
                     logging.error(f"action: apuesta_almacenada | result: fail | error: {e}")

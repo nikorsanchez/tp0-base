@@ -31,7 +31,6 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - SERVER_PORT=12345
-      - BATCH_PROCESSING=true
     volumes:
       - ./server/config.ini:/config.ini:ro
     networks:
@@ -48,8 +47,7 @@ if [ "$NUM_CLIENTS" -gt 0 ]; then
     entrypoint: /client
     environment:
       - CLI_ID=$i
-      - BATCH_SIZE=100
-      - BATCH_PROCESSING=true
+      - MAX_AMOUNT=140
     volumes:
       - ./client/config.yaml:/config.yaml:ro
       - ./.data/agency-$i.csv:/data/agency-$i.csv:ro
