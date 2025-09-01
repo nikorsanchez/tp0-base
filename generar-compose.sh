@@ -47,7 +47,7 @@ if [ "$NUM_CLIENTS" -gt 0 ]; then
     entrypoint: /client
     environment:
       - CLI_ID=$i
-      - MAX_AMOUNT=140
+      - MAX_AMOUNT=160
     volumes:
       - ./client/config.yaml:/config.yaml:ro
       - ./.data/agency-$i.csv:/data/agency-$i.csv:ro

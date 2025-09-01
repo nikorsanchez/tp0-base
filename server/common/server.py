@@ -83,7 +83,7 @@ class Server:
                             bet_dict['number']
                         ))
                     store_bets(bet_objects)
-                    logging.info(f"action: apuesta_almacenada | result: success | bets: {len(bet_objects)}")
+                    logging.info(f"action: apuesta_almacenada | result: success | cantidad: {len(bet_objects)}")
                     protocol.send_confirmation()
                 except Exception as e:
                     logging.error(f"action: apuesta_almacenada | result: fail | error: {e}")
