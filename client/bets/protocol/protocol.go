@@ -63,7 +63,11 @@ func WaitForConfirmation(conn net.Conn) error {
     msgType := header[0]
     length := binary.BigEndian.Uint16(header[1:3])
     
-    if msgType != HeaderTypeConfirm {
+    if msgType == HeaderTypeFailure {
+        return fmt.Errorf("received bet has failed to be stored")
+    }
+
+    if msgType != HeaderTypeFailure && msgType != HeaderTypeConfirm {
         return fmt.Errorf("unexpected message type: %d, expected confirmation", msgType)
     }
     
