@@ -56,9 +56,6 @@ class Server:
     def __handle_client_connection(self, client_sock):
         """
         Read message from a specific client socket and closes the socket
-
-        If a problem arises in the communication with the client, the
-        client socket will also be closed
         """
         protocol = LotteryProtocol(client_sock)
         try:
@@ -69,7 +66,7 @@ class Server:
                 return
             
             addr = client_sock.getpeername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | message: {message}')
+            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | agency: {message.get("agency", "unknown")}')
             
             response = BetHandler.process_bet(message)
 
@@ -84,17 +81,16 @@ class Server:
                         message['number']
                     )
                     store_bets([bet])
-                    logging.info(f"action: apuesta_almacenada | result: success | dni: {bet.document}")
+                    logging.info(f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}")
                     protocol.send_confirmation()
                 except Exception as e:
                     logging.error(f"action: apuesta_almacenada | result: fail | error: {e}")
             else:
-                protocol.send_message(response)
+                protocol.send_confirmation_failed()
+                logging.error(f"action: process_bet | result: fail | error: {response.get('message')}")
             
         except Exception as e:
             logging.error(f"action: handle_client | result: fail | error: {e}")
-            error_response = {'status': 'error', 'message': 'Server error'}
-            protocol.send_message(error_response)
         finally:
             protocol.close()
 

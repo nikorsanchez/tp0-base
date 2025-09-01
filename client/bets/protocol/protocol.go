@@ -6,7 +6,6 @@ import (
     "io"
     "net"
     "os"
-    "strings"
 
     "github.com/7574-sistemas-distribuidos/docker-compose-init/client/bets/models"
 )
@@ -35,6 +34,7 @@ func SendBet(conn net.Conn, bet *models.Bet) error {
 
 func buildBetMessage(bet *models.Bet) []byte {
     fields := []string{
+        bet.Agency,
         bet.FirstName,
         bet.LastName,
         bet.Document,
@@ -54,25 +54,6 @@ func buildBetMessage(bet *models.Bet) []byte {
     return message
 }
 
-func parseBetMessage(data []byte) (*models.Bet, error) {
-    if len(data) > 0 && data[len(data)-1] == FieldEndMarker {
-        data = data[:len(data)-1]
-    }
-    
-    parts := strings.Split(string(data), string(FieldSeparator))
-    if len(parts) != 5 {
-        return nil, fmt.Errorf("invalid message format: expected 5 fields, got %d", len(parts))
-    }
-    
-    return &models.Bet{
-        FirstName: parts[0],
-        LastName:  parts[1],
-        Document:  parts[2],
-        Birthdate: parts[3],
-        Number:    parts[4],
-    }, nil
-}
-
 func WaitForConfirmation(conn net.Conn) error {
     header := make([]byte, HeaderSize)
     if err := readData(conn, header); err != nil {
@@ -80,9 +61,17 @@ func WaitForConfirmation(conn net.Conn) error {
     }
     
     msgType := header[0]
-    length := int(header[1])<<16 | int(header[2])<<8 | int(header[3])
-    if msgType != HeaderTypeConfirm || length != 0 {
-        return fmt.Errorf("unexpected confirmation header: type=%d length=%d", msgType, length)
+    length := binary.BigEndian.Uint16(header[1:3])
+    
+    if msgType != HeaderTypeConfirm {
+        return fmt.Errorf("unexpected message type: %d, expected confirmation", msgType)
+    }
+    
+    if length != 0 {
+        body := make([]byte, length)
+        if err := readData(conn, body); err != nil {
+            return fmt.Errorf("read confirmation body: %w", err)
+        }
     }
     
     return nil

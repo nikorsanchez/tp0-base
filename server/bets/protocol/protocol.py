@@ -1,34 +1,14 @@
 import struct
-import json
 import logging
-from bets.protocol.protocol_consts import HEADER_TYPE_BET, HEADER_TYPE_CONFIRM, HEADER_SIZE, CONFIRMATION_LENGTH
+from bets.protocol.protocol_consts import HEADER_TYPE_BET, HEADER_TYPE_CONFIRM, HEADER_SIZE, CONFIRMATION_LENGTH, HEADER_TYPE_FAILURE
 
 class LotteryProtocol:
     def __init__(self, sock):
         self.sock = sock
 
-    def send_message(self, message):
-        """
-        Send a message with a header indicating the size to avoid short writes
-        """
-        try:
-            message_str = f"{message.get('first_name', '')}|{message.get('last_name', '')}|{message.get('document', '')}|{message.get('birthdate', '')}|{message.get('number', '')}\n"
-            message_bytes = message_str.encode('utf-8')
-            
-            message_length = len(message_bytes)
-            if message_length > 0xFFFF:
-                raise ValueError("Message too large")
-            
-            header = struct.pack('!BH', HEADER_TYPE_BET, message_length)
-            self.sock.sendall(header + message_bytes)
-            return True
-        except (OSError, struct.error, ValueError) as e:
-            logging.error(f"action: send_message | result: fail | error: {e}")
-            return False
-        
     def send_confirmation(self):
         """
-        Send only a confirmation header (no body)
+        Send only a confirmation header
         """
         try:
             header = struct.pack('!BH', HEADER_TYPE_CONFIRM, CONFIRMATION_LENGTH)
@@ -38,10 +18,20 @@ class LotteryProtocol:
         except (OSError, struct.error) as e:
             logging.error(f"action: send_confirmation | result: fail | error: {e}")
             return False
+        
+    def send_confirmation_failed(self):
+        try:
+            header = struct.pack('!BH', HEADER_TYPE_FAILURE, CONFIRMATION_LENGTH)
+            self.sock.sendall(header)
+            logging.info("action: send_confirmation_failed | result: success")
+            return True
+        except (OSError, struct.error) as e:
+            logging.error(f"action: send_confirmation_failed | result: fail | error: {e}")
+            return False
 
     def receive_message(self):
         """
-        Receive a complete message
+        Receive a complete message avoiding short reads
         """
         try:
             header = self._recv_all(HEADER_SIZE)
@@ -61,17 +51,17 @@ class LotteryProtocol:
             message_str = message_bytes.decode('utf-8').strip()
             parts = message_str.split('|')
             
-            if len(parts) != 5:
-                logging.error(f"action: receive_message | result: fail | error: invalid_format | parts: {len(parts)}")
+            if len(parts) != 6:
+                logging.error(f"action: receive_message | result: fail | error: invalid_format | expected 6 fields, got {len(parts)}")
                 return None
             
             message = {
-                'first_name': parts[0],
-                'last_name': parts[1],
-                'document': parts[2],
-                'birthdate': parts[3],
-                'number': parts[4],
-                'agency': 1
+                'agency': parts[0],
+                'first_name': parts[1],
+                'last_name': parts[2],
+                'document': parts[3],
+                'birthdate': parts[4],
+                'number': parts[5]
             }
             
             return message
