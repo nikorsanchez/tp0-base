@@ -58,12 +58,13 @@ func (c *Client) createClientSocket() error {
 			c.config.ID,
 			err,
 		)
+		return err
 	}
 	c.conn = conn
 	return nil
 }
 
-func (c *Client) StartClientLoop() {
+func (c *Client) StartClient() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -100,6 +101,4 @@ func (c *Client) StartClientLoop() {
 
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 	c.GracefulShutdown()
-
-	time.Sleep(1 * time.Second) // not necesary works anyway, but fixes the client print for docker compose
 }
