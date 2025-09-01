@@ -47,7 +47,7 @@ def main():
     logging.debug(f"action: config | result: success | port: {port} | "
                   f"listen_backlog: {listen_backlog} | logging_level: {logging_level}")
 
-    # Initialize server and start server loop
+    # Initialize server and starts it
     server = Server(port, listen_backlog)
     server.run()
 

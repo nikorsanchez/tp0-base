@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/bets/protocol"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/bets/utils"
@@ -18,8 +17,6 @@ var log = logging.MustGetLogger("log")
 type ClientConfig struct {
 	ID            string
 	ServerAddress string
-	LoopAmount    int
-	LoopPeriod    time.Duration
 }
 
 // Client Entity that encapsulates how

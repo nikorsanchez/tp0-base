@@ -28,7 +28,7 @@ func BetsFromFile() ([]*models.Bet, error) {
 		return nil, err
 	}
 
-	log.Infof("action: batch_size | result: success | client_id: %v | count: %d", cliID, batchSize)
+	log.Infof("action: batch_size_set | result: success | client_id: %v | count: %d", cliID, batchSize)
 
 	csvPath := filepath.Join("/data/", "agency-"+cliID+".csv")
 	bets, err := readBetsFromCSV(csvPath, batchSize, cliID)
