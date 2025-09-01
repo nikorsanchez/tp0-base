@@ -1,7 +1,7 @@
 package protocol
 
 import (
-    "encoding/json"
+    "encoding/binary"
     "fmt"
     "io"
     "net"
@@ -11,39 +11,69 @@ import (
 )
 
 func SendBet(conn net.Conn, bet *models.Bet) error {
-    betBytes, err := json.Marshal(bet)
-    if err != nil {
-        return fmt.Errorf("marshal bet: %w", err)
-    }
-    if len(betBytes) > 0xFFFFFF {
-        return fmt.Errorf("bet too large")
+    message := buildBetMessage(bet)
+    
+    if len(message) > MaxMessageSize {
+        return fmt.Errorf("bet too large: %d bytes", len(message))
     }
 
-    header := make([]byte, FullHeaderSize)
+    header := make([]byte, HeaderSize)
     header[0] = HeaderTypeBet
-    header[1] = byte((len(betBytes) >> 16) & 0xFF)
-    header[2] = byte((len(betBytes) >> 8) & 0xFF)
-    header[3] = byte(len(betBytes) & 0xFF)
+    binary.BigEndian.PutUint16(header[1:3], uint16(len(message)))
 
     if err := writeFull(conn, header); err != nil {
         return fmt.Errorf("send header: %w", err)
     }
-    if err := writeFull(conn, betBytes); err != nil {
+    
+    if err := writeFull(conn, message); err != nil {
         return fmt.Errorf("send body: %w", err)
     }
+    
     return nil
 }
 
+func buildBetMessage(bet *models.Bet) []byte {
+    fields := []string{
+        bet.Agency,
+        bet.FirstName,
+        bet.LastName,
+        bet.Document,
+        bet.Birthdate,
+        bet.Number,
+    }
+    
+    var message []byte
+    for i, field := range fields {
+        if i > 0 {
+            message = append(message, FieldSeparator)
+        }
+        message = append(message, []byte(field)...)
+    }
+    message = append(message, FieldEndMarker)
+    
+    return message
+}
+
 func WaitForConfirmation(conn net.Conn) error {
-    header := make([]byte, FullHeaderSize)
+    header := make([]byte, HeaderSize)
     if err := readData(conn, header); err != nil {
         return fmt.Errorf("read confirmation header: %w", err)
     }
+    
     msgType := header[0]
-    length := int(header[1])<<16 | int(header[2])<<8 | int(header[3])
-    if msgType != HeaderTypeConfirm || length != 0 {
-        return fmt.Errorf("unexpected confirmation header: type=%d length=%d", msgType, length)
+    length := binary.BigEndian.Uint16(header[1:3])
+    
+    if msgType != HeaderTypeConfirm {
+        return fmt.Errorf("unexpected message type: %d, expected confirmation", msgType)
     }
+    
+    if length != 0 {
+        body := make([]byte, length)
+        if err := readData(conn, body); err != nil {
+            return fmt.Errorf("read confirmation body: %w", err)
+        }
+    }
+    
     return nil
 }
 
