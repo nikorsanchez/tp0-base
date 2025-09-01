@@ -42,6 +42,7 @@ func NewClient(config ClientConfig) *Client {
 // GracefulShutdown closes the client connection gracefully
 func (c *Client) GracefulShutdown() {
 	log.Infof("action: client_shutdown | result: in_progress | client_id: %v", c.config.ID)
+	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
 	if c.conn != nil {
 		c.conn.Close()
 	}
@@ -91,22 +92,22 @@ func (c *Client) StartClient() {
 	log.Infof("action: sending_batch | result: in_progress | client_id: %v | bets_count: %d", c.config.ID, len(bets))
 
 	err = protocol.SendBetsBatch(c.conn, bets)
-    if err != nil {
-        log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", c.config.ID, err)
-        c.conn.Close()
-        c.GracefulShutdown()
-        return
-    }
+	if err != nil {
+		log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		c.conn.Close()
+		c.GracefulShutdown()
+		return
+	}
 
 	err = protocol.WaitForBatchConfirmation(c.conn)
-    c.conn.Close()
-    
-    if err != nil {
-        log.Errorf("action: batch_de_apuestas_enviadas | result: fail | client_id: %v | error: %v", 
-            c.config.ID, err)
-        c.GracefulShutdown()
-        return
-    }
+	c.conn.Close()
+
+	if err != nil {
+		log.Errorf("action: batch_de_apuestas_enviadas | result: fail | client_id: %v | error: %v",
+			c.config.ID, err)
+		c.GracefulShutdown()
+		return
+	}
 
 	log.Infof("action: batch_de_apuestas_enviadas | result: success")
 
