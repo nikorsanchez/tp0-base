@@ -14,33 +14,67 @@ import (
 
 var log = logging.MustGetLogger("log")
 
-// Reads bets from a CSV file with a fixed quantity determined from the environment variable MAX_AMOUNT
-func BetsFromFile() ([]*models.Bet, error) {
+type CSVScanner struct {
+	scanner    *bufio.Scanner
+	file       *os.File
+	lineNumber int
+	eof        bool
+	agency     string
+}
+
+// Creates a new scanner to read the CSV file
+func NewCSVScanner(file *os.File) *CSVScanner {
 	cliID := os.Getenv("CLI_ID")
-	if cliID == "" {
-		return nil, fmt.Errorf("CLI_ID environment variable not set")
+	return &CSVScanner{
+		scanner: bufio.NewScanner(file),
+		file:    file,
+		agency:  cliID,
+		eof:     false,
+	}
+}
+
+func (s *CSVScanner) ReadBatch(batchSize int) ([]*models.Bet, error) {
+	var bets []*models.Bet
+
+	for len(bets) < batchSize {
+		if !s.scanner.Scan() {
+			s.eof = true
+			break
+		}
+
+		s.lineNumber++
+		line := strings.TrimSpace(s.scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		bet, err := parseBetFromCSVLine(line, s.lineNumber, s.agency)
+		if err != nil {
+			log.Warningf("action: parse_line | result: skip | line: %d | error: %v", s.lineNumber, err)
+			continue
+		}
+
+		bets = append(bets, bet)
 	}
 
-	log.Infof("action: read_bets | result: in_progress | client_id: %v", cliID)
-
-	batchSize, err := getBatchSize()
-	if err != nil {
-		return nil, err
-	}
-
-	log.Infof("action: batch_size_set | result: success | client_id: %v | count: %d", cliID, batchSize)
-
-	csvPath := filepath.Join("/data/", "agency-"+cliID+".csv")
-	bets, err := readBetsFromCSV(csvPath, batchSize, cliID)
-	if err != nil {
-		return nil, fmt.Errorf("read bets from CSV: %w", err)
+	if err := s.scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scan file: %w", err)
 	}
 
 	return bets, nil
 }
 
+// Indicates if the end of the file has been reached
+func (s *CSVScanner) IsEOF() bool {
+	return s.eof
+}
+
+func GetCSVFilePath(cliID string) string {
+	return filepath.Join("/data/", "agency-"+cliID+".csv")
+}
+
 // Reads and validates the MAX_AMOUNT environment variable
-func getBatchSize() (int, error) {
+func GetBatchSize() (int, error) {
 	batchSizeStr := os.Getenv("MAX_AMOUNT")
 	if batchSizeStr == "" {
 		return 1, nil
@@ -57,42 +91,29 @@ func getBatchSize() (int, error) {
 	return batchSize, nil
 }
 
-// Reads bets from a CSV file using bufio for line-by-line reading
-func readBetsFromCSV(filePath string, maxBets int, agency string) ([]*models.Bet, error) {
-	file, err := os.Open(filePath)
+func BetsFromFile() ([]*models.Bet, error) {
+	cliID := os.Getenv("CLI_ID")
+	if cliID == "" {
+		return nil, fmt.Errorf("CLI_ID environment variable not set")
+	}
+
+	batchSize, err := GetBatchSize()
+	if err != nil {
+		return nil, err
+	}
+
+	csvPath := GetCSVFilePath(cliID)
+	file, err := os.Open(csvPath)
 	if err != nil {
 		return nil, fmt.Errorf("open file: %w", err)
 	}
 	defer file.Close()
 
-	var bets []*models.Bet
-	scanner := bufio.NewScanner(file)
-	lineNumber := 0
-
-	for scanner.Scan() && len(bets) < maxBets {
-		lineNumber++
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-
-		bet, err := parseBetFromCSVLine(line, lineNumber, agency)
-		if err != nil {
-			log.Warningf("action: parse_line | result: skip | line: %d | error: %v", lineNumber, err)
-			continue
-		}
-
-		bets = append(bets, bet)
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("scan file: %w", err)
-	}
-
-	return bets, nil
+	scanner := NewCSVScanner(file)
+	return scanner.ReadBatch(batchSize)
 }
 
-// Parses a single CSV line into a Bet model
+// Parses line into a Bet
 func parseBetFromCSVLine(line string, lineNumber int, agency string) (*models.Bet, error) {
 	fields := strings.Split(line, ",")
 	if len(fields) != 5 {

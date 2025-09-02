@@ -34,3 +34,20 @@ def load_bets() -> list[Bet]:
         for row in reader:
             yield Bet(row[0], row[1], row[2], row[3], row[4], row[5])
 
+
+
+def bets_from_dict_list(bets_dict_list):
+    """
+    Convierte una lista de diccionarios en una lista de objetos Bet.
+    """
+    bet_objects = []
+    for bet_dict in bets_dict_list:
+        bet_objects.append(Bet(
+            bet_dict['agency'],
+            bet_dict['first_name'],
+            bet_dict['last_name'],
+            bet_dict['document'],
+            bet_dict['birthdate'],
+            bet_dict['number']
+        ))
+    return bet_objects

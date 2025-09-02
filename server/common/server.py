@@ -3,7 +3,7 @@ import logging
 import signal
 from bets.protocol.protocol import LotteryProtocol
 from bets.handlers.bet_handler import BetHandler
-from common.utils import store_bets
+from common.utils import store_bets, bets_from_dict_list
 from bets.models import Bet
 
 
@@ -55,42 +55,56 @@ class Server:
 
     def __handle_client_connection(self, client_sock):
         """
-        Read message from a specific client socket and closes the socket
+        Handle multiple batches from a client connection
         """
         protocol = LotteryProtocol(client_sock)
-        try:
-            message_data = protocol.receive_message()
-            
-            if message_data is None:
-                logging.error("action: receive_message | result: fail | error: invalid_message")
-                return
-            
-            addr = client_sock.getpeername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]}')
-            
-            response = BetHandler.process_batch_bet(message_data)
+        total_bets_received = 0
+        batch_count = 0
 
-            if response.get('status') == 'success':
+        def handle_batch_failure(context, batch_count, error):
+            logging.error(f"action: {context} | result: fail | batch: {batch_count} | error: {error}")
+            protocol.send_confirmation_failed()
+
+        try:
+            while not self._shutdown_requested:
                 try:
-                    bet_objects = []
-                    for bet_dict in message_data['bets']:
-                        bet_objects.append(Bet(
-                            bet_dict['agency'],
-                            bet_dict['first_name'],
-                            bet_dict['last_name'],
-                            bet_dict['document'],
-                            bet_dict['birthdate'],
-                            bet_dict['number']
-                        ))
-                    store_bets(bet_objects)
-                    logging.info(f"action: apuesta_almacenada | result: success | cantidad: {len(bet_objects)}")
-                    protocol.send_confirmation()
+                    client_sock.settimeout(10.0)  # 10 second timeout
+
+                    message_data = protocol.receive_message()
+                    if message_data is None:
+                        logging.info("action: client_disconnected | result: success | reason: no_data")
+                        break
+
+                    addr = client_sock.getpeername()
+                    batch_count += 1
+                    logging.info(f'action: receive_batch | result: success | ip: {addr[0]} | batch: {batch_count}')
+
+                    response = BetHandler.process_batch_bet(message_data)
+
+                    if response.get('status') == 'success':
+                        try:
+                            bet_objects = bets_from_dict_list(message_data['bets'])
+                            store_bets(bet_objects)
+                            total_bets_received += len(bet_objects)
+                            logging.info(f"action: batch_stored | result: success | batch: {batch_count} | bets: {len(bet_objects)} | total: {total_bets_received}")
+                            protocol.send_confirmation()
+                        except Exception as e:
+                            handle_batch_failure("batch_storage", batch_count, e)
+                            break
+                    else:
+                        handle_batch_failure("process_batch", batch_count, response.get('message'))
+                        break
+
+                except (socket.timeout, ConnectionResetError) as e:
+                    reason = "idle_timeout" if isinstance(e, socket.timeout) else "connection_reset"
+                    logging.info(f"action: client_disconnected | result: success | reason: {reason}")
+                    break
                 except Exception as e:
-                    logging.error(f"action: apuesta_almacenada | result: fail | error: {e}")
-            else:
-                protocol.send_confirmation_failed()
-                logging.error(f"action: process_bet | result: fail | error: {response.get('message')}")
-            
+                    handle_batch_failure("process_batch", batch_count, e)
+                    break
+
+            logging.info(f"action: client_session_end | result: success | batches: {batch_count} | total_bets: {total_bets_received}")
+
         except Exception as e:
             logging.error(f"action: handle_client | result: fail | error: {e}")
         finally:

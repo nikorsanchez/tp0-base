@@ -81,37 +81,66 @@ func (c *Client) StartClient() {
 		return
 	}
 
-	bets, err := utils.BetsFromFile()
+	batchSize, err := utils.GetBatchSize()
 	if err != nil {
-		log.Errorf("action: read_bets | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		c.GracefulShutdown()
+		c.handleGetBatchSizeError(err)
 		return
 	}
 
-	log.Infof("action: read_bets | result: success | client_id: %v | bets_count: %d", c.config.ID, len(bets))
+	log.Infof("action: batch_size_set | result: success | client_id: %v | count: %d", c.config.ID, batchSize)
 
-	log.Infof("action: sending_batch | result: in_progress | client_id: %v | bets_count: %d", c.config.ID, len(bets))
-
-	err = protocol.SendBetsBatch(c.conn, bets)
+	filePath := utils.GetCSVFilePath(c.config.ID)
+	file, err := os.Open(filePath)
 	if err != nil {
-		log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		c.conn.Close()
-		c.GracefulShutdown()
+		c.handleGetCSVFilePathError(err)
 		return
 	}
+	defer file.Close()
 
-	err = protocol.WaitForBatchConfirmation(c.conn)
+	scanner := utils.NewCSVScanner(file)
+	totalBetsSent := 0
+	batchNumber := 1
+
+	for {
+		bets, err := scanner.ReadBatch(batchSize)
+		if err != nil {
+			c.handleBatchReadError(batchNumber, err)
+			return
+		}
+
+		if len(bets) == 0 {
+			break
+		}
+
+		log.Infof("action: sending_batch | result: in_progress | client_id: %v | batch: %d | bets_count: %d", 
+			c.config.ID, batchNumber, len(bets))
+
+		err = protocol.SendBetsBatch(c.conn, bets)
+		if err != nil {
+			c.handleSendBetsBatchError(batchNumber, err)
+			return
+		}
+
+		err = protocol.WaitForBatchConfirmation(c.conn)
+		if err != nil {
+			c.handleWaitForConfirmationError(batchNumber, err)
+			return
+		}
+
+		log.Infof("action: batch_confirmed | result: success | client_id: %v | batch: %d | bets_count: %d",
+			c.config.ID, batchNumber, len(bets))
+
+		totalBetsSent += len(bets)
+		batchNumber++
+
+		if scanner.IsEOF() {
+			break
+		}
+	}
+
+	log.Infof("action: all_batches_sent | result: success | client_id: %v | total_bets: %d | total_batches: %d",
+		c.config.ID, totalBetsSent, batchNumber-1)
+
 	c.conn.Close()
-
-	if err != nil {
-		log.Errorf("action: batch_de_apuestas_enviadas | result: fail | client_id: %v | error: %v",
-			c.config.ID, err)
-		c.GracefulShutdown()
-		return
-	}
-
-	log.Infof("action: batch_de_apuestas_enviadas | result: success")
-
-	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 	c.GracefulShutdown()
 }

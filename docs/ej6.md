@@ -14,7 +14,9 @@ volumes:
 
 ## Comunicación por Chunks/Batchs
 
-Se agregó a la lógica de negocio la característica de poder enviar en un solo mensaje una cierta cantidad de apuestas del cliente al servidor, con el mismo sistema del anterior ejercicio de serialización, deserialización de mensajes, manteniendo el delimitador de campos de los datos de las apuestas `|`, pero ahora agregando en el protocolo una separación entre apuestas `;`, permitiendo concatenar todas las apuestas en un solo mensaje en el cliente y luego aplicando su correcta lectura en el servidor. En el servidor se hará un conteo de todas las apuestas recibidas, pero con la salvedad de que si existe al menos un error con una apuesta, se le avisará al cliente que las envió que hubo un error en el guardado de apuestas.
+Se agregó a la lógica de negocio la característica de poder enviar en un solo mensaje una cierta cantidad de apuestas del cliente al servidor, con el mismo sistema del anterior ejercicio de serialización, deserialización de mensajes, manteniendo el delimitador de campos de los datos de las apuestas `|`, pero ahora agregando en el protocolo una separación entre apuestas `;`, permitiendo concatenar todas las apuestas que entren en un batch, en un solo mensaje en el cliente y luego aplicando su correcta lectura en el servidor. En el servidor se hará un conteo de todas las apuestas recibidas, pero con la salvedad de que si existe al menos un error con una apuesta, se le avisará al cliente que las envió que hubo un error en el guardado de apuestas.
+
+Al recibir un error, el cliente dejará de enviar información si algun le resta enviar, y finalizará el sistema. De caso contrario, seguirá enviando batches de apuestas hasta terminar de leer todo el archivo.
 
 En caso de un almacenamiento de apuestas correcto el server imprimirá un formato:
 
