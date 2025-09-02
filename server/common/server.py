@@ -50,6 +50,8 @@ class Server:
                 client_sock = self.__accept_new_connection()
                 if client_sock is not None:
                     self.__handle_client_connection(client_sock)
+                    if self._finished_clients == self._expected_clients:
+                            self._run_lottery_and_notify_winners()
         except Exception as e:
             logging.error(f"action: server_loop | result: fail | error: {e}")
 
@@ -77,8 +79,6 @@ class Server:
                         if agency_number is not None:
                             self._client_sockets[agency_number] = client_sock
                         self._finished_clients += 1
-                        if self._finished_clients == self._expected_clients:
-                            self._run_lottery_and_notify_winners()
                         break
                     if message_data is None:
                         logging.info("action: client_disconnected | result: success | reason: no_data")
