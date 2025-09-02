@@ -31,6 +31,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - SERVER_PORT=12345
+      - EXPECTED_CLIENTS=$NUM_CLIENTS
     volumes:
       - ./server/config.ini:/config.ini:ro
     networks:

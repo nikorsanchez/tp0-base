@@ -18,8 +18,6 @@ var log = logging.MustGetLogger("log")
 type ClientConfig struct {
 	ID            string
 	ServerAddress string
-	LoopAmount    int
-	LoopPeriod    time.Duration
 }
 
 // Client Entity that encapsulates how
@@ -112,7 +110,7 @@ func (c *Client) StartClient() {
 			break
 		}
 
-		log.Infof("action: sending_batch | result: in_progress | client_id: %v | batch: %d | bets_count: %d", 
+		log.Infof("action: sending_batch | result: in_progress | client_id: %v | batch: %d | bets_count: %d",
 			c.config.ID, batchNumber, len(bets))
 
 		err = protocol.SendBetsBatch(c.conn, bets)
@@ -140,6 +138,42 @@ func (c *Client) StartClient() {
 
 	log.Infof("action: all_batches_sent | result: success | client_id: %v | total_bets: %d | total_batches: %d",
 		c.config.ID, totalBetsSent, batchNumber-1)
+
+	log.Infof("action: finish_notify | result: in_progress | client_id: %v", c.config.ID)
+
+	err = protocol.SendFinishNotification(c.conn)
+	if err != nil {
+		c.handleWSendFinishNotificationError(err)
+		return
+	}
+
+	log.Infof("action: finish_notify | result: success | client_id: %v", c.config.ID)
+
+	log.Infof("action: consulta_ganadores | result: in_progress | client_id: %v", c.config.ID)
+
+	err = protocol.SendWinnersQuery(c.conn, c.config.ID)
+	if err != nil {
+		c.handleSendWinnersQueryError(err)
+		return
+	}
+
+	log.Infof("action: receive_winners | result: in_progress | client_id: %v", c.config.ID)
+
+	winners, err := protocol.ReceiveWinnersList(c.conn)
+	if err != nil {
+		c.handleReceiveWinnersError(err)
+		return
+	}
+
+	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %d", len(winners))
+
+	if len(winners) > 0 {
+		for _, dni := range winners {
+			log.Infof("Ganadores para agencia %v: DNI ganador: %v", c.config.ID, dni)
+		}
+	} else {
+		log.Infof("No hay ganadores para agencia %v.", c.config.ID)
+	}
 
 	c.conn.Close()
 	c.GracefulShutdown()

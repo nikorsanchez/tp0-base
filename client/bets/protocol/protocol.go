@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/bets/models"
 )
@@ -31,6 +32,69 @@ func SendBetsBatch(conn net.Conn, bets []*models.Bet) error {
 	}
 
 	return nil
+}
+
+// Send all bets were sent notification
+func SendFinishNotification(conn net.Conn) error {
+	header := make([]byte, HeaderSize)
+	header[0] = HeaderTypeFinishNotify
+	binary.BigEndian.PutUint16(header[1:3], EmptySizeBody)
+
+	if err := writeFull(conn, header); err != nil {
+		return fmt.Errorf("send finish notification: %w", err)
+	}
+
+	return nil
+}
+
+// Request winners to server
+func SendWinnersQuery(conn net.Conn, agency string) error {
+	message := []byte(agency)
+
+	header := make([]byte, HeaderSize)
+	header[0] = HeaderTypeWinnersQuery
+	binary.BigEndian.PutUint16(header[1:3], uint16(len(message)))
+
+	if err := writeFull(conn, header); err != nil {
+		return fmt.Errorf("send winners query header: %w", err)
+	}
+
+	if err := writeFull(conn, message); err != nil {
+		return fmt.Errorf("send winners query body: %w", err)
+	}
+
+	return nil
+}
+
+func ReceiveWinnersList(conn net.Conn) ([]string, error) {
+	header := make([]byte, HeaderSize)
+	if err := readData(conn, header); err != nil {
+		return nil, fmt.Errorf("read winners list header: %w", err)
+	}
+
+	msgType := header[0]
+	msgLength := binary.BigEndian.Uint16(header[1:3])
+
+	if msgType != HeaderTypeWinnersList {
+		return nil, fmt.Errorf("unexpected message type: %d, expected winners list", msgType)
+	}
+
+	if msgLength == 0 {
+		return []string{}, nil
+	}
+
+	message := make([]byte, msgLength)
+	if err := readData(conn, message); err != nil {
+		return nil, fmt.Errorf("read winners list body: %w", err)
+	}
+
+	winnersData := string(message)
+	if winnersData == "" {
+		return []string{}, nil
+	}
+
+	winners := strings.Split(winnersData, ",")
+	return winners, nil
 }
 
 func buildBatchMessage(bets []*models.Bet) []byte {

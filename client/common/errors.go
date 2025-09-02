@@ -36,3 +36,24 @@ func (c *Client) handleWaitForConfirmationError(batchNumber int, err error) {
     }
     c.GracefulShutdown()
 }
+
+func (c *Client) handleWSendFinishNotificationError(err error) {
+	log.Errorf("action: finish_notify | result: fail | client_id: %v | error: %v",
+		c.config.ID, err)
+	c.conn.Close()
+	c.GracefulShutdown()
+}
+
+func (c *Client) handleSendWinnersQueryError(err error) {
+	log.Errorf("action: consulta_ganadores | result: fail | client_id: %v | error: %v",
+		c.config.ID, err)
+	c.conn.Close()
+	c.GracefulShutdown()
+}
+
+func (c *Client) handleReceiveWinnersError(err error) {
+	log.Errorf("action: receive_winners | result: fail | client_id: %v | error: %v",
+		c.config.ID, err)
+	c.conn.Close()
+	c.GracefulShutdown()
+}

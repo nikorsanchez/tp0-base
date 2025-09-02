@@ -48,7 +48,7 @@ func (s *CSVScanner) ReadBatch(batchSize int) ([]*models.Bet, error) {
 			continue
 		}
 
-		bet, err := parseBetFromCSVLine(line, s.lineNumber, s.agency)
+		bet, err := parseBetFromCSVLine(line, s.agency)
 		if err != nil {
 			log.Warningf("action: parse_line | result: skip | line: %d | error: %v", s.lineNumber, err)
 			continue
@@ -114,7 +114,7 @@ func BetsFromFile() ([]*models.Bet, error) {
 }
 
 // Parses line into a Bet
-func parseBetFromCSVLine(line string, lineNumber int, agency string) (*models.Bet, error) {
+func parseBetFromCSVLine(line string, agency string) (*models.Bet, error) {
 	fields := strings.Split(line, ",")
 	if len(fields) != 5 {
 		return nil, fmt.Errorf("wrong number of fields, expected 5, got %d", len(fields))
