@@ -59,7 +59,7 @@ func (c *Client) createClientSocket() error {
 			c.conn = conn
 			return nil
 		}
-		log.Warningf("action: connect | result: retrying | client_id: %v | attempt: %d | error: %v", c.config.ID, i+1, err)
+		log.Warningf("retrying_reconnecting | client_id: %v | attempt: %d | error: %v", c.config.ID, i+1, err)
 		time.Sleep(500 * time.Millisecond)
 	}
 	log.Criticalf(
