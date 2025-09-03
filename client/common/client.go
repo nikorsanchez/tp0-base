@@ -52,32 +52,34 @@ func (c *Client) GracefulShutdown() {
 // failure, error is printed in stdout/stderr and exit 1
 // is returned
 func (c *Client) createClientSocket() error {
-	conn, err := net.Dial("tcp", c.config.ServerAddress)
-	if err != nil {
-		log.Criticalf(
-			"action: connect | result: fail | client_id: %v | error: %v",
-			c.config.ID,
-			err,
-		)
-		return err
+	var conn net.Conn
+	var err error
+	for i := 0; i < 10; i++ {
+		conn, err = net.Dial("tcp", c.config.ServerAddress)
+		if err == nil {
+			c.conn = conn
+			return nil
+		}
+		log.Warningf("retrying_reconnecting | client_id: %v | attempt: %d | error: %v", c.config.ID, i+1, err)
+		time.Sleep(500 * time.Millisecond)
 	}
-	c.conn = conn
-	return nil
+	log.Criticalf(
+		"action: connect | result: fail | client_id: %v | error: %v",
+		c.config.ID,
+		err,
+	)
+	return err
 }
 
 func (c *Client) StartClient() {
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-sigChan
-		close(c.shutdown)
-	}()
+	c.handleSignals()
 
 	if err := c.createClientSocket(); err != nil {
 		c.GracefulShutdown()
 		return
 	}
+	defer c.conn.Close()
+	defer c.GracefulShutdown()
 
 	batchSize, err := utils.GetBatchSize()
 	if err != nil {
@@ -100,37 +102,14 @@ func (c *Client) StartClient() {
 	batchNumber := 1
 
 	for {
-		bets, err := scanner.ReadBatch(batchSize)
+		done, err := c.processBatch(scanner, batchSize, batchNumber, &totalBetsSent)
 		if err != nil {
-			c.handleBatchReadError(batchNumber, err)
 			return
 		}
-
-		if len(bets) == 0 {
+		if done {
 			break
 		}
-
-		log.Infof("action: sending_batch | result: in_progress | client_id: %v | batch: %d | bets_count: %d",
-			c.config.ID, batchNumber, len(bets))
-
-		err = protocol.SendBetsBatch(c.conn, bets)
-		if err != nil {
-			c.handleSendBetsBatchError(batchNumber, err)
-			return
-		}
-
-		err = protocol.WaitForBatchConfirmation(c.conn)
-		if err != nil {
-			c.handleWaitForConfirmationError(batchNumber, err)
-			return
-		}
-
-		log.Infof("action: batch_confirmed | result: success | client_id: %v | batch: %d | bets_count: %d",
-			c.config.ID, batchNumber, len(bets))
-
-		totalBetsSent += len(bets)
 		batchNumber++
-
 		if scanner.IsEOF() {
 			break
 		}
@@ -140,19 +119,58 @@ func (c *Client) StartClient() {
 		c.config.ID, totalBetsSent, batchNumber-1)
 
 	log.Infof("action: finish_notify | result: in_progress | client_id: %v", c.config.ID)
-
-	err = protocol.SendFinishNotification(c.conn)
-	if err != nil {
+	if err := protocol.SendFinishNotification(c.conn); err != nil {
 		c.handleWSendFinishNotificationError(err)
 		return
 	}
-
 	log.Infof("action: finish_notify | result: success | client_id: %v", c.config.ID)
 
+	c.queryAndLogWinners()
+}
+
+func (c *Client) handleSignals() {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		close(c.shutdown)
+	}()
+}
+
+func (c *Client) processBatch(scanner *utils.CSVScanner, batchSize, batchNumber int, totalBetsSent *int) (bool, error) {
+	bets, err := scanner.ReadBatch(batchSize)
+	if err != nil {
+		c.handleBatchReadError(batchNumber, err)
+		return false, err
+	}
+	if len(bets) == 0 {
+		return true, nil
+	}
+
+	log.Infof("action: sending_batch | result: in_progress | client_id: %v | batch: %d | bets_count: %d",
+		c.config.ID, batchNumber, len(bets))
+
+	if err := protocol.SendBetsBatch(c.conn, bets); err != nil {
+		c.handleSendBetsBatchError(batchNumber, err)
+		return false, err
+	}
+
+	if err := protocol.WaitForBatchConfirmation(c.conn); err != nil {
+		c.handleWaitForConfirmationError(batchNumber, err)
+		return false, err
+	}
+
+	log.Infof("action: batch_confirmed | result: success | client_id: %v | batch: %d | bets_count: %d",
+		c.config.ID, batchNumber, len(bets))
+
+	*totalBetsSent += len(bets)
+	return false, nil
+}
+
+func (c *Client) queryAndLogWinners() {
 	log.Infof("action: consulta_ganadores | result: in_progress | client_id: %v", c.config.ID)
 
-	err = protocol.SendWinnersQuery(c.conn, c.config.ID)
-	if err != nil {
+	if err := protocol.SendWinnersQuery(c.conn, c.config.ID); err != nil {
 		c.handleSendWinnersQueryError(err)
 		return
 	}
@@ -174,7 +192,4 @@ func (c *Client) StartClient() {
 	} else {
 		log.Infof("No hay ganadores para agencia %v.", c.config.ID)
 	}
-
-	c.conn.Close()
-	c.GracefulShutdown()
 }
