@@ -51,17 +51,23 @@ func (c *Client) GracefulShutdown() {
 // failure, error is printed in stdout/stderr and exit 1
 // is returned
 func (c *Client) createClientSocket() error {
-	conn, err := net.Dial("tcp", c.config.ServerAddress)
-	if err != nil {
-		log.Criticalf(
-			"action: connect | result: fail | client_id: %v | error: %v",
-			c.config.ID,
-			err,
-		)
-		return err
+	var conn net.Conn
+	var err error
+	for i := 0; i < 10; i++ {
+		conn, err = net.Dial("tcp", c.config.ServerAddress)
+		if err == nil {
+			c.conn = conn
+			return nil
+		}
+		log.Warningf("action: connect | result: retrying | client_id: %v | attempt: %d | error: %v", c.config.ID, i+1, err)
+		time.Sleep(500 * time.Millisecond)
 	}
-	c.conn = conn
-	return nil
+	log.Criticalf(
+		"action: connect | result: fail | client_id: %v | error: %v",
+		c.config.ID,
+		err,
+	)
+	return err
 }
 
 func (c *Client) StartClient() {
