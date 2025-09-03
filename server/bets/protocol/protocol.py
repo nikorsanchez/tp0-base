@@ -1,4 +1,3 @@
-import struct
 import logging
 from bets.protocol.protocol_consts import HEADER_TYPE_BET_BATCH, HEADER_TYPE_CONFIRM, HEADER_SIZE, CONFIRMATION_LENGTH, HEADER_TYPE_FAILURE
 
@@ -11,21 +10,21 @@ class LotteryProtocol:
         Send only a confirmation header
         """
         try:
-            header = struct.pack('!BH', HEADER_TYPE_CONFIRM, CONFIRMATION_LENGTH)
+            header = self._serialize_header(HEADER_TYPE_CONFIRM, CONFIRMATION_LENGTH)
             self.sock.sendall(header)
             logging.info("action: send_confirmation | result: success")
             return True
-        except (OSError, struct.error) as e:
+        except (OSError, ValueError) as e:
             logging.error(f"action: send_confirmation | result: fail | error: {e}")
             return False
         
     def send_confirmation_failed(self):
         try:
-            header = struct.pack('!BH', HEADER_TYPE_FAILURE, CONFIRMATION_LENGTH)
+            header = self._serialize_header(HEADER_TYPE_FAILURE, CONFIRMATION_LENGTH)
             self.sock.sendall(header)
             logging.info("action: send_confirmation_failed | result: success")
             return True
-        except (OSError, struct.error) as e:
+        except (OSError, ValueError) as e:
             logging.error(f"action: send_confirmation_failed | result: fail | error: {e}")
             return False
 
@@ -38,7 +37,7 @@ class LotteryProtocol:
             if not header:
                 return None
             
-            msg_type, message_length = struct.unpack('!BH', header)
+            msg_type, message_length = self._deserialize_header(header)
             
             if msg_type != HEADER_TYPE_BET_BATCH:
                 logging.error(f"action: receive_message | result: fail | error: unexpected_type | type: {msg_type}")
@@ -52,9 +51,46 @@ class LotteryProtocol:
             
             return self._parse_batch_message(message_str)
             
-        except (OSError, struct.error, UnicodeDecodeError, ValueError) as e:
+        except (OSError, ValueError, UnicodeDecodeError) as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
             return None
+        
+
+    def _recv_all(self, n):
+        """
+        Receive exactly n bytes avoiding short reads
+        """
+        data = b''
+        while len(data) < n:
+            packet = self.sock.recv(n - len(data))
+            if not packet:
+                return None
+            data += packet
+        return data
+    
+    def _serialize_header(self, msg_type, length):
+        header = bytearray()
+        header.append(msg_type)
+        header.extend(length.to_bytes(2, 'big', signed=False))
+        return bytes(header)
+
+    def _deserialize_header(self, header_bytes):
+        if len(header_bytes) != HEADER_SIZE:
+            raise ValueError("Invalid header size")
+        
+        msg_type = header_bytes[0]
+        length = int.from_bytes(header_bytes[1:3], 'big', signed=False)
+        
+        return msg_type, length
+
+    def close(self):
+        """
+        Close the underlying socket
+        """
+        try:
+            self.sock.close()
+        except OSError:
+            pass
         
     def _parse_batch_message(self, message_str):
         """
@@ -97,24 +133,3 @@ class LotteryProtocol:
             'error_count': error_count,
             'total_received': len(bet_strings)
         }
-
-    def _recv_all(self, n):
-        """
-        Receive exactly n bytes avoiding short reads
-        """
-        data = b''
-        while len(data) < n:
-            packet = self.sock.recv(n - len(data))
-            if not packet:
-                return None
-            data += packet
-        return data
-
-    def close(self):
-        """
-        Close the underlying socket
-        """
-        try:
-            self.sock.close()
-        except OSError:
-            pass

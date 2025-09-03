@@ -18,8 +18,6 @@ var log = logging.MustGetLogger("log")
 type ClientConfig struct {
 	ID            string
 	ServerAddress string
-	LoopAmount    int
-	LoopPeriod    time.Duration
 }
 
 // Client Entity that encapsulates how
@@ -68,18 +66,14 @@ func (c *Client) createClientSocket() error {
 }
 
 func (c *Client) StartClient() {
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-sigChan
-		close(c.shutdown)
-	}()
+	c.handleSignals()
 
 	if err := c.createClientSocket(); err != nil {
 		c.GracefulShutdown()
 		return
 	}
+	defer c.conn.Close()
+	defer c.GracefulShutdown()
 
 	batchSize, err := utils.GetBatchSize()
 	if err != nil {
@@ -102,37 +96,12 @@ func (c *Client) StartClient() {
 	batchNumber := 1
 
 	for {
-		bets, err := scanner.ReadBatch(batchSize)
-		if err != nil {
-			c.handleBatchReadError(batchNumber, err)
-			return
-		}
-
-		if len(bets) == 0 {
+		if done, err := c.processBatch(scanner, batchSize, batchNumber, &totalBetsSent); done {
 			break
-		}
-
-		log.Infof("action: sending_batch | result: in_progress | client_id: %v | batch: %d | bets_count: %d", 
-			c.config.ID, batchNumber, len(bets))
-
-		err = protocol.SendBetsBatch(c.conn, bets)
-		if err != nil {
-			c.handleSendBetsBatchError(batchNumber, err)
+		} else if err != nil {
 			return
 		}
-
-		err = protocol.WaitForBatchConfirmation(c.conn)
-		if err != nil {
-			c.handleWaitForConfirmationError(batchNumber, err)
-			return
-		}
-
-		log.Infof("action: batch_confirmed | result: success | client_id: %v | batch: %d | bets_count: %d",
-			c.config.ID, batchNumber, len(bets))
-
-		totalBetsSent += len(bets)
 		batchNumber++
-
 		if scanner.IsEOF() {
 			break
 		}
@@ -140,7 +109,43 @@ func (c *Client) StartClient() {
 
 	log.Infof("action: all_batches_sent | result: success | client_id: %v | total_bets: %d | total_batches: %d",
 		c.config.ID, totalBetsSent, batchNumber-1)
+}
 
-	c.conn.Close()
-	c.GracefulShutdown()
+func (c *Client) handleSignals() {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		close(c.shutdown)
+	}()
+}
+
+func (c *Client) processBatch(scanner *utils.CSVScanner, batchSize, batchNumber int, totalBetsSent *int) (bool, error) {
+	bets, err := scanner.ReadBatch(batchSize)
+	if err != nil {
+		c.handleBatchReadError(batchNumber, err)
+		return false, err
+	}
+	if len(bets) == 0 {
+		return true, nil
+	}
+
+	log.Infof("action: sending_batch | result: in_progress | client_id: %v | batch: %d | bets_count: %d",
+		c.config.ID, batchNumber, len(bets))
+
+	if err := protocol.SendBetsBatch(c.conn, bets); err != nil {
+		c.handleSendBetsBatchError(batchNumber, err)
+		return false, err
+	}
+
+	if err := protocol.WaitForBatchConfirmation(c.conn); err != nil {
+		c.handleWaitForConfirmationError(batchNumber, err)
+		return false, err
+	}
+
+	log.Infof("action: batch_confirmed | result: success | client_id: %v | batch: %d | bets_count: %d",
+		c.config.ID, batchNumber, len(bets))
+
+	*totalBetsSent += len(bets)
+	return false, nil
 }
