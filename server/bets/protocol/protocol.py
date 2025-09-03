@@ -6,22 +6,10 @@ class LotteryProtocol:
     def __init__(self, sock):
         self.sock = sock
 
-    def _hstonw_short(self, value):
-        """Convert 16-bit integer from host to network byte order (big endian)"""
-        return ((value & 0xFF) << 8) | ((value >> 8) & 0xFF)
-
-    def _nwtohs_short(self, value):
-        """Convert 16-bit integer from network to host byte order"""
-        return ((value & 0xFF) << 8) | ((value >> 8) & 0xFF)
-
     def _serialize_header(self, msg_type, length):
-        network_length = self._hstonw_short(length)
-        
-        header = bytearray(HEADER_SIZE)
-        header[0] = msg_type
-        header[1] = (network_length >> 8) & 0xFF
-        header[2] = network_length & 0xFF
-        
+        header = bytearray()
+        header.append(msg_type)  # Message type
+        header.extend(length.to_bytes(2, 'big', signed=False))  # Length in big endian
         return bytes(header)
 
     def _deserialize_header(self, header_bytes):
@@ -29,9 +17,7 @@ class LotteryProtocol:
             raise ValueError("Invalid header size")
         
         msg_type = header_bytes[0]
-        
-        network_length = (header_bytes[1] << 8) | header_bytes[2]
-        length = self._nwtohs_short(network_length)
+        length = int.from_bytes(header_bytes[1:3], 'big', signed=False)
         
         return msg_type, length
 
