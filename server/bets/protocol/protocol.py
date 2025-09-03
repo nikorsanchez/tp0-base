@@ -8,8 +8,8 @@ class LotteryProtocol:
 
     def _serialize_header(self, msg_type, length):
         header = bytearray()
-        header.append(msg_type)  # Message type
-        header.extend(length.to_bytes(2, 'big', signed=False))  # Length in big endian
+        header.append(msg_type)
+        header.extend(length.to_bytes(2, 'big', signed=False))
         return bytes(header)
 
     def _deserialize_header(self, header_bytes):
