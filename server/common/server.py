@@ -4,7 +4,8 @@ import signal
 from multiprocessing import Process, Manager
 from bets.protocol.protocol import LotteryProtocol
 from bets.handlers.bet_handler import BetHandler
-from common.utils import store_bets, bets_from_dict_list, load_bets, has_won
+from common.utils import store_bets, bets_from_dict_list, load_bets, has_won, close_client_connection, log_batch_reception
+from common.errors import handle_batch_failure, handle_connection_error
 
 class Server:
     def __init__(self, port, listen_backlog, expected_clients):
@@ -71,10 +72,6 @@ class Server:
         batch_count = 0
         agency_number = None
 
-        def handle_batch_failure(context, batch_count, error):
-            logging.error(f"action: {context} | result: fail | batch: {batch_count} | error: {error}")
-            protocol.send_confirmation_failed()
-
         try:
             while True:
                 try:
@@ -98,9 +95,8 @@ class Server:
                             protocol.send_winners_list(winners, agency_number)
                         break
                     if message_data.get('type') == 'batch':
-                        addr = client_sock.getpeername()
+                        log_batch_reception(self, batch_count + 1, client_sock)
                         batch_count += 1
-                        logging.info(f'action: receive_batch | result: success | ip: {addr[0]} | batch: {batch_count}')
                         response = BetHandler.process_batch_bet(message_data)
                         if response.get('status') == 'success':
                             try:
@@ -113,14 +109,13 @@ class Server:
                                 logging.info(f"action: batch_stored | result: success | batch: {batch_count} | bets: {len(bet_objects)} | total: {total_bets_received}")
                                 protocol.send_confirmation()
                             except Exception as e:
-                                handle_batch_failure("batch_storage", batch_count, e)
+                                handle_batch_failure("batch_storage", batch_count, e, protocol)
                                 break
                         else:
-                            handle_batch_failure("process_batch", batch_count, response.get('message'))
+                            handle_batch_failure("process_batch", batch_count, response.get('message'), protocol)
                             break
                 except (socket.timeout, ConnectionResetError) as e:
-                    reason = "idle_timeout" if isinstance(e, socket.timeout) else "connection_reset"
-                    logging.info(f"action: client_disconnected | result: success | reason: {reason}")
+                    handle_connection_error(self, e)
                     break
                 except Exception as e:
                     handle_batch_failure("process_batch", batch_count, e)
@@ -129,15 +124,8 @@ class Server:
         except Exception as e:
             logging.error(f"action: handle_client | result: fail | error: {e}")
         finally:
-            try:
-                if client_sock:
-                    client_sock.shutdown(socket.SHUT_RDWR)
-                    client_sock.close()
-            except OSError as e:
-                logging.error(f"action: close_client_socket | result: fail | error: {e}")
+            close_client_connection(self, client_sock)
 
-    
-    
     def __accept_new_connection(self):
         logging.info('action: accept_connections | result: in_progress')
         try:
@@ -154,3 +142,4 @@ class Server:
         self._shutdown_requested = True
         self._close_server_socket()
         logging.info("action: server_shutdown | result: success")
+    
