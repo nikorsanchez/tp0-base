@@ -3,7 +3,6 @@ package protocol
 import (
     "encoding/binary"
     "fmt"
-    "io"
     "net"
     "os"
 
@@ -56,7 +55,7 @@ func buildBetMessage(bet *models.Bet) []byte {
 
 func WaitForConfirmation(conn net.Conn) error {
     header := make([]byte, HeaderSize)
-    if err := readData(conn, header); err != nil {
+    if err := readFull(conn, header); err != nil {
         return fmt.Errorf("read confirmation header: %w", err)
     }
     
@@ -73,7 +72,7 @@ func WaitForConfirmation(conn net.Conn) error {
     
     if length != 0 {
         body := make([]byte, length)
-        if err := readData(conn, body); err != nil {
+        if err := readFull(conn, body); err != nil {
             return fmt.Errorf("read confirmation body: %w", err)
         }
     }
@@ -82,9 +81,16 @@ func WaitForConfirmation(conn net.Conn) error {
 }
 
 // Reads all bytes from the connection preventing short reads
-func readData(r io.Reader, buf []byte) error {
-    _, err := io.ReadFull(r, buf)
-    return err
+func readFull(conn net.Conn, buf []byte) error {
+	total := 0
+	for total < len(buf) {
+		n, err := conn.Read(buf[total:])
+		if err != nil {
+			return err
+		}
+		total += n
+	}
+	return nil
 }
 
 // Writes all bytes to the connection preventing short writes

@@ -6,28 +6,13 @@ class LotteryProtocol:
     def __init__(self, sock):
         self.sock = sock
 
-    def _serialize_header(self, msg_type, length):
-        header = bytearray()
-        header.append(msg_type)
-        header.extend(length.to_bytes(2, 'big', signed=False))
-        return bytes(header)
-
-    def _deserialize_header(self, header_bytes):
-        if len(header_bytes) != HEADER_SIZE:
-            raise ValueError("Invalid header size")
-        
-        msg_type = header_bytes[0]
-        length = int.from_bytes(header_bytes[1:3], 'big', signed=False)
-        
-        return msg_type, length
-
     def send_confirmation(self):
         """
         Send only a confirmation header
         """
         try:
             header = self._serialize_header(HEADER_TYPE_CONFIRM, CONFIRMATION_LENGTH)
-            self.sock.sendall(header)
+            self._send_all(header)
             logging.info("action: send_confirmation | result: success")
             return True
         except (OSError, ValueError) as e:
@@ -37,7 +22,7 @@ class LotteryProtocol:
     def send_confirmation_failed(self):
         try:
             header = self._serialize_header(HEADER_TYPE_FAILURE, CONFIRMATION_LENGTH)
-            self.sock.sendall(header)
+            self._send_all(header)
             logging.info("action: send_confirmation_failed | result: success")
             return True
         except (OSError, ValueError) as e:
@@ -96,6 +81,32 @@ class LotteryProtocol:
                 return None
             data += packet
         return data
+    
+    def _send_all(self, data: bytes) -> None:
+        """
+        Send exactly all bytes in data
+        """
+        total_sent = 0
+        while total_sent < len(data):
+            sent = self.sock.send(data[total_sent:])
+            if sent == 0:
+                raise RuntimeError("Socket connection broken")
+            total_sent += sent
+            
+    def _serialize_header(self, msg_type, length):
+        header = bytearray()
+        header.append(msg_type)
+        header.extend(length.to_bytes(2, 'big', signed=False))
+        return bytes(header)
+
+    def _deserialize_header(self, header_bytes):
+        if len(header_bytes) != HEADER_SIZE:
+            raise ValueError("Invalid header size")
+        
+        msg_type = header_bytes[0]
+        length = int.from_bytes(header_bytes[1:3], 'big', signed=False)
+        
+        return msg_type, length
 
     def close(self):
         """
