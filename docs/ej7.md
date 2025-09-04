@@ -36,7 +36,7 @@ Al igual que los ejercicios anteriores, primero se debe ejecutar el generador de
 
 #### Asegurarse de ejecutar chmod +x sobre el archivo así para darle permisos de ejecución:
 
-`sudo chmod -x generar-compose.sh docker-compose-dev.yaml 1` 
+`sudo chmod -x generar-compose.sh docker-compose-dev.yaml` 
 
 Para poder funcionar es necesario descomprimir primero el dataset para obtener los 5 archivos `.csv` que contiene el proyecto. En caso de ya tener algunos archivos o haber ejecutado los tests, tomar la precaución de borrar y volver a descomprimir el archivo `.zip`.
 
