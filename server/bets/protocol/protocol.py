@@ -1,4 +1,5 @@
 import logging
+import socket
 from bets.protocol.protocol_consts import (
     HEADER_TYPE_BET_BATCH,
     HEADER_TYPE_CONFIRM,
@@ -140,6 +141,7 @@ class LotteryProtocol:
         Close the underlying socket
         """
         try:
+            self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
         except OSError:
             pass
