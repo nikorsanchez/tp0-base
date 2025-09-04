@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strings"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/bets/models"
 )
@@ -88,12 +87,10 @@ func ReceiveWinnersList(conn net.Conn) ([]string, error) {
 		return nil, fmt.Errorf("read winners list body: %w", err)
 	}
 
-	winnersData := string(message)
-	if winnersData == "" {
-		return []string{}, nil
+	var winners []string
+	for i := 0; i+LengthDNI <= len(message); i += LengthDNI {
+		winners = append(winners, string(message[i:i+LengthDNI]))
 	}
-
-	winners := strings.Split(winnersData, ",")
 	return winners, nil
 }
 
