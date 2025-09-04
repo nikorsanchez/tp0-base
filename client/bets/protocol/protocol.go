@@ -65,6 +65,7 @@ func SendWinnersQuery(conn net.Conn, agency string) error {
 	return nil
 }
 
+// Receive a list of winners' DNI, expected to be received as 8 digit long each.
 func ReceiveWinnersList(conn net.Conn) ([]string, error) {
 	header := make([]byte, HeaderSize)
 	if err := readData(conn, header); err != nil {

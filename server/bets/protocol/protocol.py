@@ -39,7 +39,7 @@ class LotteryProtocol:
 
     def send_winners_list(self, dni_list, agency):
         """
-        Send a list of winners' DNI as a comma-separated string.
+        Send a list of winners' DNI, expected to be received as 8 digit long each.
         """
         dni_bytes = b"".join(dni.encode('utf-8') for dni in dni_list)
         message_length = len(dni_bytes)
