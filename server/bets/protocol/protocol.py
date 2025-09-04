@@ -39,16 +39,18 @@ class LotteryProtocol:
 
     def send_winners_list(self, dni_list, agency):
         """
-        Send a list of winners' DNI as a comma-separated string.
+        Send a list of winners' DNI, expected to be received as 8 digit long each.
         """
-        winners_str = ",".join(dni_list)
-        winners_bytes = winners_str.encode('utf-8')
-        header = self._serialize_header(HEADER_TYPE_WINNERS_LIST, len(winners_bytes))
+        dni_bytes = b"".join(dni.encode('utf-8') for dni in dni_list)
+        message_length = len(dni_bytes)
+        header = self._serialize_header(msg_type=HEADER_TYPE_WINNERS_LIST, length=message_length)
+
+        logging.info(f"action: send_winners_list | result: in_progress | agency: {agency} | winners count: {len(dni_list)}")
+
         try:
-            self.sock.sendall(header)
-            if winners_bytes:
-                self.sock.sendall(winners_bytes)
-            logging.info(f"action: send_winners_list | result: success | agency: {agency} | winners: {winners_str}")
+            self._send_all(header)
+            self._send_all(dni_bytes)
+            logging.info(f"action: send_winners_list | result: success | agency: {agency} | winners sent: {dni_list}")
             return True
         except (OSError, ValueError) as e:
             logging.error(f"action: send_winners_list | result: fail | error: {e}")
@@ -106,6 +108,17 @@ class LotteryProtocol:
                 return None
             data += packet
         return data
+    
+    def _send_all(self, data: bytes) -> None:
+        """
+        Send exactly all bytes in data
+        """
+        total_sent = 0
+        while total_sent < len(data):
+            sent = self.sock.send(data[total_sent:])
+            if sent == 0:
+                raise RuntimeError("Socket connection broken")
+            total_sent += sent
     
     def _serialize_header(self, msg_type, length):
         header = bytearray()

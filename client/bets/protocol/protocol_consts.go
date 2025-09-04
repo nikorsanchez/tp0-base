@@ -13,4 +13,5 @@ const (
 	BetSeparator           = ';'
 	FieldEndMarker         = '\n'
 	EmptySizeBody          = 0
+	LengthDNI              = 8
 )
