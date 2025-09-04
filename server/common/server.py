@@ -1,28 +1,28 @@
 import socket
 import logging
 import signal
+from multiprocessing import Process, Manager
 from bets.protocol.protocol import LotteryProtocol
 from bets.handlers.bet_handler import BetHandler
 from common.utils import store_bets, bets_from_dict_list, load_bets, has_won
 
-
 class Server:
     def __init__(self, port, listen_backlog, expected_clients):
-        # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self._expected_clients = expected_clients
         self._shutdown_requested = False
         self._setup_signal_handler()
-        self._finished_clients = 0
-        self._client_sockets = {}
+        self.manager = Manager()
+        self._finished_clients = self.manager.Value('i', 0)
+        self._condition = self.manager.Condition()
+        self._bets_lock = self.manager.Lock()
 
     def _setup_signal_handler(self):
         signal.signal(signal.SIGTERM, self._handle_signal)
 
     def _handle_signal(self, signum, frame):
-        # Handle termination signal
         logging.info(f"action: received_signal | result: in_progress")
         self._shutdown_requested = True
         self._graceful_shutdown()
@@ -37,28 +37,35 @@ class Server:
                 logging.info(f"action: closing_server_socket | result: success | fd: {self._server_socket.fileno()}")
         except OSError as e:
             logging.error(f"action: closing_server_socket | result: fail | error: {e}")
-        
-    def run(self):
-        """
-        Server that accept a new connections and establishes a
-        communication with a Lottery client.
-        """
 
+    def run(self):
         logging.info('server started, waiting for connections...')
+        processes = []
         try:
-            while not self._shutdown_requested:
+            while not self._shutdown_requested and len(processes) < self._expected_clients:
                 client_sock = self.__accept_new_connection()
                 if client_sock is not None:
-                    self.__handle_client_connection(client_sock)
-                    if self._finished_clients == self._expected_clients:
-                            self._run_lottery_and_notify_winners()
+                    p = Process(
+                        target=self.__handle_client_connection,
+                        args=(
+                            client_sock,
+                            self._finished_clients,
+                            self._condition,
+                            self._expected_clients,
+                            self._bets_lock
+                        )
+                    )
+                    p.start()
+                    processes.append(p)
+            for p in processes:
+                p.join()
         except Exception as e:
             logging.error(f"action: server_loop | result: fail | error: {e}")
+        finally:
+            for p in processes:
+                p.join()
 
-    def __handle_client_connection(self, client_sock):
-        """
-        Handle multiple batches from a client connection
-        """
+    def __handle_client_connection(self, client_sock, finished_clients, condition, expected_clients, bets_lock):
         protocol = LotteryProtocol(client_sock)
         total_bets_received = 0
         batch_count = 0
@@ -69,36 +76,39 @@ class Server:
             protocol.send_confirmation_failed()
 
         try:
-            while not self._shutdown_requested:
+            while True:
                 try:
-                    client_sock.settimeout(10.0)  # 10 second timeout
-
+                    client_sock.settimeout(10.0)
                     message_data = protocol.receive_message()
-                    if message_data.get('type') == 'finished':
-                        logging.info("action: client_finished | result: success")
-                        if agency_number is not None:
-                            self._client_sockets[agency_number] = client_sock
-                        self._finished_clients += 1
-                        break
                     if message_data is None:
                         logging.info("action: client_disconnected | result: success | reason: no_data")
                         break
-
+                    if message_data.get('type') == 'finished':
+                        logging.info("action: client_finished | result: success")
+                        # Wait for all clients to finish for all processes
+                        with condition:
+                            finished_clients.value += 1
+                            if finished_clients.value == expected_clients:
+                                condition.notify_all()
+                            else:
+                                condition.wait()
+                        if agency_number is not None:
+                            bets = [bet for bet in load_bets() if bet.agency == agency_number]
+                            winners = [bet.document for bet in bets if has_won(bet)]
+                            protocol.send_winners_list(winners, agency_number)
+                        break
                     if message_data.get('type') == 'batch':
-
                         addr = client_sock.getpeername()
                         batch_count += 1
                         logging.info(f'action: receive_batch | result: success | ip: {addr[0]} | batch: {batch_count}')
-
                         response = BetHandler.process_batch_bet(message_data)
-
                         if response.get('status') == 'success':
                             try:
                                 bet_objects = bets_from_dict_list(message_data['bets'])
                                 if agency_number is None and bet_objects:
                                     agency_number = bet_objects[0].agency
-                                    self._client_sockets[agency_number] = client_sock
-                                store_bets(bet_objects)
+                                with bets_lock:
+                                    store_bets(bet_objects)
                                 total_bets_received += len(bet_objects)
                                 logging.info(f"action: batch_stored | result: success | batch: {batch_count} | bets: {len(bet_objects)} | total: {total_bets_received}")
                                 protocol.send_confirmation()
@@ -108,7 +118,6 @@ class Server:
                         else:
                             handle_batch_failure("process_batch", batch_count, response.get('message'))
                             break
-
                 except (socket.timeout, ConnectionResetError) as e:
                     reason = "idle_timeout" if isinstance(e, socket.timeout) else "connection_reset"
                     logging.info(f"action: client_disconnected | result: success | reason: {reason}")
@@ -116,42 +125,13 @@ class Server:
                 except Exception as e:
                     handle_batch_failure("process_batch", batch_count, e)
                     break
-
             logging.info(f"action: client_session_end | result: success | batches: {batch_count} | total_bets: {total_bets_received}")
-
         except Exception as e:
             logging.error(f"action: handle_client | result: fail | error: {e}")
         finally:
-            if not (agency_number and self._finished_clients <= 5):
-                protocol.close()
-
-    def _run_lottery_and_notify_winners(self):
-        logging.info("action: lottery | result: in_progress")
-        bets_by_agency = {}
-        for bet in load_bets():
-            bets_by_agency.setdefault(bet.agency, []).append(bet)
-        winners_by_agency = {}
-        for agency, bets in bets_by_agency.items():
-            winners = [bet.document for bet in bets if has_won(bet)]
-            winners_by_agency[agency] = winners
-        for agency, client_sock in self._client_sockets.items():
-            protocol = LotteryProtocol(client_sock)
-            winners = winners_by_agency.get(agency, [])
-            try:
-                protocol.send_winners_list(winners, agency)
-            except Exception as e:
-                logging.error(f"action: notify_winners | result: fail | agency: {agency} | error: {e}")
-            #finally:
-                #protocol.close()
-        logging.info("action: lottery | result: success")
+            pass
 
     def __accept_new_connection(self):
-        """
-        Accept new connections
-        Function blocks until a connection to a client is made.
-        Then connection created is printed and returned
-        """
-
         logging.info('action: accept_connections | result: in_progress')
         try:
             client_sock, addr = self._server_socket.accept()
