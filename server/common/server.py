@@ -129,8 +129,15 @@ class Server:
         except Exception as e:
             logging.error(f"action: handle_client | result: fail | error: {e}")
         finally:
-            pass
+            try:
+                if client_sock:
+                    client_sock.shutdown(socket.SHUT_RDWR)
+                    client_sock.close()
+            except OSError as e:
+                logging.error(f"action: close_client_socket | result: fail | error: {e}")
 
+    
+    
     def __accept_new_connection(self):
         logging.info('action: accept_connections | result: in_progress')
         try:
