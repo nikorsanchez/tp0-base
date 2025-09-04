@@ -68,29 +68,3 @@ def close_client_connection(self, client_sock: socket.socket):
 def log_batch_reception(self, batch_count: int, client_sock: socket.socket):
         addr = client_sock.getpeername()
         logging.info(f'action: receive_batch | result: success | ip: {addr[0]} | batch: {batch_count}')
-        
-def process_successful_batch(self, message_data: Dict[str, Any],
-                                protocol: LotteryProtocol,
-                                session_stats: '_ClientSessionStats',
-                                agency_number: Optional[int],
-                                bets_lock, batch_count: int):
-        try:
-            bet_objects = bets_from_dict_list(message_data['bets'])
-            
-            if agency_number is None and bet_objects:
-                agency_number = bet_objects[0].agency
-                
-            with bets_lock:
-                store_bets(bet_objects)
-                
-            session_stats.total_bets += len(bet_objects)
-            
-            logging.info(f"action: batch_stored | result: success | "
-                        f"batch: {batch_count} | bets: {len(bet_objects)} | "
-                        f"total: {session_stats.total_bets}")
-                        
-            protocol.send_confirmation()
-            
-        except Exception as e:
-            self._handle_batch_failure("batch_storage", batch_count, e, protocol)
-            raise
