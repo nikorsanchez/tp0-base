@@ -90,6 +90,7 @@ class Server:
                             else:
                                 condition.wait()
                         if agency_number is not None:
+                            logging.info("action: lottery | result: in_progress")
                             bets = [bet for bet in load_bets() if bet.agency == agency_number]
                             winners = [bet.document for bet in bets if has_won(bet)]
                             protocol.send_winners_list(winners, agency_number)
@@ -124,6 +125,7 @@ class Server:
         except Exception as e:
             logging.error(f"action: handle_client | result: fail | error: {e}")
         finally:
+            logging.info("action: lottery | result: success")
             close_client_connection(self, client_sock)
 
     def __accept_new_connection(self):

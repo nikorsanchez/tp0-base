@@ -45,7 +45,7 @@ class LotteryProtocol:
         message_length = len(dni_bytes)
         header = self._serialize_header(msg_type=HEADER_TYPE_WINNERS_LIST, length=message_length)
 
-        logging.info(f"action: send_winners_list | agency: {agency} | winners count: {len(dni_list)}")
+        logging.info(f"action: send_winners_list | result: in_progress | agency: {agency} | winners count: {len(dni_list)}")
 
         try:
             self._send_all(header)
