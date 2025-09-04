@@ -75,7 +75,6 @@ class Server:
         try:
             while True:
                 try:
-                    client_sock.settimeout(10.0)
                     message_data = protocol.receive_message()
                     if message_data is None:
                         logging.info("action: client_disconnected | result: success | reason: no_data")
