@@ -3,7 +3,6 @@ package protocol
 import (
 	"encoding/binary"
 	"fmt"
-	"io"
 	"net"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/bets/models"
@@ -68,7 +67,7 @@ func SendWinnersQuery(conn net.Conn, agency string) error {
 // Receive a list of winners' DNI, expected to be received as 8 digit long each.
 func ReceiveWinnersList(conn net.Conn) ([]string, error) {
 	header := make([]byte, HeaderSize)
-	if err := readData(conn, header); err != nil {
+	if err := readFull(conn, header); err != nil {
 		return nil, fmt.Errorf("read winners list header: %w", err)
 	}
 
@@ -84,7 +83,7 @@ func ReceiveWinnersList(conn net.Conn) ([]string, error) {
 	}
 
 	message := make([]byte, msgLength)
-	if err := readData(conn, message); err != nil {
+	if err := readFull(conn, message); err != nil {
 		return nil, fmt.Errorf("read winners list body: %w", err)
 	}
 
@@ -132,7 +131,7 @@ func buildSingleBetMessage(bet *models.Bet) []byte {
 
 func WaitForBatchConfirmation(conn net.Conn) error {
 	header := make([]byte, HeaderSize)
-	if err := readData(conn, header); err != nil {
+	if err := readFull(conn, header); err != nil {
 		return fmt.Errorf("read confirmation header: %w", err)
 	}
 
@@ -149,9 +148,16 @@ func WaitForBatchConfirmation(conn net.Conn) error {
 }
 
 // Reads all bytes from the connection preventing short reads
-func readData(r io.Reader, buf []byte) error {
-	_, err := io.ReadFull(r, buf)
-	return err
+func readFull(conn net.Conn, buf []byte) error {
+	total := 0
+	for total < len(buf) {
+		n, err := conn.Read(buf[total:])
+		if err != nil {
+			return err
+		}
+		total += n
+	}
+	return nil
 }
 
 // Writes all bytes to the connection preventing short writes
