@@ -11,7 +11,7 @@ class LotteryProtocol:
         """
         try:
             header = self._serialize_header(HEADER_TYPE_CONFIRM, CONFIRMATION_LENGTH)
-            self.sock.sendall(header)
+            self._send_all(header)
             logging.info("action: send_confirmation | result: success")
             return True
         except (OSError, ValueError) as e:
@@ -21,7 +21,7 @@ class LotteryProtocol:
     def send_confirmation_failed(self):
         try:
             header = self._serialize_header(HEADER_TYPE_FAILURE, CONFIRMATION_LENGTH)
-            self.sock.sendall(header)
+            self._send_all(header)
             logging.info("action: send_confirmation_failed | result: success")
             return True
         except (OSError, ValueError) as e:
@@ -67,6 +67,17 @@ class LotteryProtocol:
                 return None
             data += packet
         return data
+    
+    def _send_all(self, data: bytes) -> None:
+        """
+        Send exactly all bytes in data
+        """
+        total_sent = 0
+        while total_sent < len(data):
+            sent = self.sock.send(data[total_sent:])
+            if sent == 0:
+                raise RuntimeError("Socket connection broken")
+            total_sent += sent
     
     def _serialize_header(self, msg_type, length):
         header = bytearray()
