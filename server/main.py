@@ -5,7 +5,6 @@ from common.server import Server
 import logging
 import os
 from common.consts import MAX_CLIENTS_SUPPORTED
-import signal
 
 
 def initialize_config():
@@ -49,13 +48,6 @@ def main():
     # of the component
     logging.debug(f"action: config | result: success | port: {port} | "
                   f"listen_backlog: {listen_backlog} | logging_level: {logging_level}")
-
-    def handle_sigterm(signum, frame):
-        logging.info("SIGTERM received, shutting down gracefully...")
-        server._shutdown_requested = True
-        server._close_server_socket()
-
-    signal.signal(signal.SIGTERM, handle_sigterm)
 
 
     # Initialize server and starts it

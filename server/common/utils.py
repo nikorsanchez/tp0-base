@@ -57,7 +57,7 @@ def bets_from_dict_list(bets_dict_list):
     return bet_objects
 
 
-def close_client_connection(self, client_sock: socket.socket):
+def close_client_connection(client_sock: socket.socket):
         try:
             if client_sock:
                 client_sock.shutdown(socket.SHUT_RDWR)
