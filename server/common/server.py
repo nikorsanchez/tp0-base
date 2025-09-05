@@ -30,7 +30,7 @@ class Server:
             self._bets_lock = self.manager.Lock()
 
     def handle_signal(self, signum, frame):
-        logging.info(f"action: received_signal | signal: {signum} | result: in_progress")
+        logging.info(f"action: received_signal | result: in_progress | signal: {signum}")
         self._shutdown_event.set()
         self._graceful_shutdown()
         
@@ -66,7 +66,7 @@ class Server:
                         )
                         p.start()
                         processes.append(p)
-                        logging.info(f"action: client_connected | total: {len(processes)}/{self._expected_clients}")
+                        logging.info(f"action: client_connected | result: success | total: {len(processes)}/{self._expected_clients}")
                 except socket.timeout:
                     continue
             
@@ -98,7 +98,7 @@ class Server:
                         logging.info("action: client_disconnected | result: success | reason: no_data")
                         break
                     if message_data.get('type') == 'finished':
-                        logging.info(f"action: client_finished | agency: {agency_number}")
+                        logging.info(f"action: client_finished | result:success | agency: {agency_number}")
                         
                         with condition:
                             finished_clients.value += 1                            
@@ -115,7 +115,7 @@ class Server:
                                 bets = [bet for bet in load_bets() if bet.agency == agency_number]
                                 winners = [bet.document for bet in bets if has_won(bet)]
                                 protocol.send_winners_list(winners, agency_number)
-                                logging.info(f"action: winners_sent | agency: {agency_number} | winners: {len(winners)}")
+                                logging.info(f"action: winners_sent | result: success | agency: {agency_number} | winners: {len(winners)}")
                             except Exception as e:
                                 logging.error(f"action: send_winners | result: fail | error: {e}")
                         
